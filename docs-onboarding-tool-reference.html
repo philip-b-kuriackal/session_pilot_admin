@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anställningsbevis – Formulärbyggare</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0ece4;
+    --surface: #faf8f4;
+    --border: #c8bfaa;
+    --border-dark: #8a7d6a;
+    --text: #1a1612;
+    --text-muted: #6b5f52;
+    --accent: #1a3a5c;
+    --accent-light: #e8eef5;
+    --check: #1a3a5c;
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── TOP BAR ── */
+  .toolbar {
+    background: var(--accent);
+    color: #fff;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  }
+  .toolbar-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .toolbar-sub { font-size: 11px; opacity: 0.65; margin-top: 2px; font-weight: 300; }
+  .toolbar-actions { display: flex; gap: 10px; }
+
+  .btn {
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn-outline {
+    background: transparent;
+    border: 1.5px solid rgba(255,255,255,0.45);
+    color: #fff;
+  }
+  .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: #fff; }
+  .btn-primary { background: #fff; color: var(--accent); }
+  .btn-primary:hover { background: #e8eef5; }
+
+  /* ── COMPANY NAME BANNER ── */
+  .company-banner {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border-dark);
+    padding: 16px 48px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .company-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); white-space: nowrap; }
+  .company-input {
+    font-family: var(--font);
+    font-size: 22px;
+    font-weight: 600;
+    border: none;
+    border-bottom: 2px dashed var(--border-dark);
+    background: transparent;
+    color: var(--accent);
+    outline: none;
+    flex: 1;
+    max-width: 480px;
+    padding: 2px 4px;
+    letter-spacing: 0.02em;
+  }
+  .company-input:focus { border-bottom-color: var(--accent); }
+  .edit-hint { font-size: 11px; color: var(--text-muted); }
+
+  /* ── DOCUMENT WRAPPER ── */
+  .doc-wrapper {
+    max-width: 860px;
+    margin: 28px auto 60px;
+    padding: 0 24px;
+  }
+
+  /* ── DOCUMENT ── */
+  #document {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+
+  /* ── HRF HEADER ── */
+  .doc-header {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0;
+    border-bottom: 3px solid var(--text);
+    padding: 20px 28px;
+    align-items: start;
+  }
+  .hrf-logo {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--text);
+    border: 2px solid var(--text);
+    width: 52px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.05em;
+  }
+  .doc-title-block { text-align: right; }
+  .doc-title { font-size: 22px; font-weight: 600; letter-spacing: 0.01em; }
+  .doc-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .company-name-display {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 12px;
+    text-align: left;
+    grid-column: 1 / -1;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── SECTIONS ── */
+  .section {
+    border-bottom: 2px solid var(--text);
+  }
+  .section-title {
+    background: var(--text);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+  }
+  .section-body { padding: 0; }
+
+  /* ── FIELD GRID ── */
+  .field-grid {
+    display: grid;
+    border-top: 1px solid var(--border);
+  }
+  .field-grid.cols-1 { grid-template-columns: 1fr; }
+  .field-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .field-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .field-grid.cols-2-1 { grid-template-columns: 2fr 1fr; }
+  .field-grid.cols-1-1-1r { grid-template-columns: 1fr 1fr 1fr; }
+  .field-grid.cols-addr { grid-template-columns: 2fr 1fr 2fr; }
+
+  .field {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 10px 8px;
+    min-height: 46px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .field:last-child { border-right: none; }
+
+  .field-label {
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+    pointer-events: none;
+  }
+
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="tel"],
+  .field input[type="date"] {
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 400;
+    border: none;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    width: 100%;
+    padding: 1px 0;
+    transition: border-color 0.15s;
+  }
+  .field input:focus { border-bottom-color: var(--accent); }
+  .field input::placeholder { color: #c8bfaa; }
+
+  /* ── CHECKBOX ROWS ── */
+  .check-section { padding: 0; }
+  .check-row {
+    display: grid;
+    grid-template-columns: 28px 200px 1fr 1fr;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    min-height: 34px;
+    padding: 4px 10px;
+    gap: 8px;
+  }
+  .check-row.indent { padding-left: 36px; grid-template-columns: 28px 180px 1fr 1fr; }
+  .check-row.header-row { background: #f5f2ee; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+
+  .check-row label { font-size: 12px; cursor: pointer; }
+  .date-range { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); }
+  .date-range input { width: 110px; font-size: 12px; }
+  .date-range span { white-space: nowrap; }
+
+  .check-box {
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--border-dark);
+    background: #fff;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .check-box:checked {
+    background: var(--check);
+    border-color: var(--check);
+  }
+  .check-box:checked::after {
+    content: '';
+    display: block;
+    width: 8px; height: 5px;
+    border-left: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(-45deg) translate(1px, -1px);
+  }
+
+  /* ── ARBETSTIDER ── */
+  .work-section .field-grid { }
+
+  .radio-box {
+    appearance: none; -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--border-dark);
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .radio-box:checked { background: var(--check); border-color: var(--check); }
+
+  .group-select {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 10px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .group-option { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+
+  .time-field {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    gap: 4px;
+  }
+  .tid-options { display: flex; gap: 16px; margin-top: 4px; }
+  .tid-option { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  .deltid-input { width: 50px; font-size: 12px; font-family: var(--font); border: none; border-bottom: 1px solid var(--border); background: transparent; outline: none; }
+  .deltid-input:focus { border-bottom-color: var(--accent); }
+
+  /* ── SALARY ROW ── */
+  .salary-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1.2fr;
+    border-top: 1px solid var(--border);
+  }
+
+  .kost-field {
+    padding: 8px 10px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .kost-options { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .kost-option { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+  .kost-amount { width: 80px; font-size: 12px; font-family: var(--font); border: none; border-bottom: 1px solid var(--border); background: transparent; outline: none; }
+  .kost-amount:focus { border-bottom-color: var(--accent); }
+
+  .yrkes-field {
+    padding: 8px 10px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .yrkes-options { display: flex; gap: 16px; margin-top: 4px; flex-wrap: wrap; }
+  .yrkes-option { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  .yrkes-years { width: 32px; font-size: 12px; font-family: var(--font); border: none; border-bottom: 1px solid var(--border); background: transparent; outline: none; }
+  .yrkes-years:focus { border-bottom-color: var(--accent); }
+
+  /* ── EXTRA NOTES ── */
+  .notes-field {
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--border);
+    min-height: 60px;
+  }
+  .notes-field textarea {
+    font-family: var(--font);
+    font-size: 13px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    width: 100%;
+    resize: vertical;
+    min-height: 42px;
+  }
+
+  /* ── SIGNATURES ── */
+  .sig-block {
+    padding: 16px 10px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .sig-date { margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .sig-date input { font-family: var(--font); font-size: 13px; border: none; border-bottom: 1px solid var(--border); background: transparent; outline: none; }
+  .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 8px; }
+  .sig-line { border-top: 1px solid var(--text); padding-top: 4px; font-size: 11px; color: var(--text-muted); margin-top: 32px; }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    padding: 10px 28px;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.5;
+    border-top: 1px solid var(--border);
+  }
+  .arbetstagaren-label {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px;
+    border-top: 2px solid var(--text);
+  }
+
+  /* ── PRINT / PDF CLEAN ── */
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 8mm 8mm;
+  }
+
+  @media print {
+    html, body {
+      width: 210mm;
+      background: white !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .toolbar, .company-banner { display: none !important; }
+    .doc-wrapper {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+    #document {
+      box-shadow: none !important;
+      border: 1px solid #999 !important;
+      width: 100% !important;
+      font-size: 11px !important;
+    }
+    /* Scale down text slightly so everything fits on A4 */
+    .doc-title { font-size: 18px !important; }
+    .section-title { font-size: 10px !important; padding: 4px 8px !important; }
+    .field { min-height: 36px !important; padding: 4px 8px 5px !important; }
+    .field-label { font-size: 8px !important; }
+    .field input { font-size: 11px !important; }
+    .check-row { min-height: 26px !important; padding: 3px 8px !important; font-size: 11px !important; }
+    .check-row label { font-size: 11px !important; }
+    .date-range input { font-size: 10px !important; width: 90px !important; }
+    .group-option, .kost-option, .yrkes-option, .tid-option { font-size: 10px !important; }
+    .sig-block { padding: 10px 8px 8px !important; }
+    .doc-footer { font-size: 9px !important; }
+    .arbetstagaren-label { font-size: 10px !important; }
+    .notes-field textarea { font-size: 11px !important; }
+    .check-box, .radio-box { width: 11px !important; height: 11px !important; }
+    /* Prevent page breaks inside sections */
+    .section { page-break-inside: avoid; break-inside: avoid; }
+  }
+
+  /* responsive */
+  @media (max-width: 600px) {
+    .field-grid.cols-3, .field-grid.cols-addr { grid-template-columns: 1fr; }
+    .salary-grid { grid-template-columns: 1fr 1fr; }
+    .check-row { grid-template-columns: 28px 1fr; }
+    .date-range { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── TOOLBAR ── -->
+<div class="toolbar">
+  <div>
+    <div class="toolbar-title">Anställningsbevis – Formulärbyggare</div>
+    <div class="toolbar-sub">Hotell, restaurang & casinopersonal · HRF</div>
+  </div>
+  <div class="toolbar-actions">
+    <button class="btn btn-outline" onclick="clearForm()">Rensa formulär</button>
+    <button class="btn btn-primary" onclick="exportPDF()">⬇ Exportera PDF</button>
+  </div>
+</div>
+
+<!-- ── COMPANY NAME EDITOR ── -->
+<div class="company-banner">
+  <span class="company-label">Företagets namn</span>
+  <input class="company-input" id="companyNameInput" type="text" value="HOTELL OCH RESTAURANG FACKET" placeholder="Ange företagsnamn…" oninput="updateCompanyName(this.value)" />
+  <span class="edit-hint">✏ Klicka för att redigera</span>
+</div>
+
+<!-- ── DOCUMENT ── -->
+<div class="doc-wrapper">
+<div id="document">
+
+  <!-- Header -->
+  <div class="doc-header" style="grid-template-columns:1fr; padding: 16px 28px;">
+    <div class="company-name-display" id="companyNameDisplay" style="border-top:none; margin-top:0; padding-top:0;">HOTELL OCH RESTAURANG FACKET</div>
+  </div>
+
+  <!-- FÖRETAG -->
+  <div class="section">
+    <div class="section-title">Företag</div>
+    <div class="section-body">
+      <div class="field-grid cols-2-1">
+        <div class="field">
+          <span class="field-label">Namn</span>
+          <input type="text" placeholder="Företagsnamn" />
+        </div>
+        <div class="field">
+          <span class="field-label">Telefon</span>
+          <input type="tel" placeholder="0XX XXX XXX" />
+        </div>
+      </div>
+      <div class="field-grid cols-2-1">
+        <div class="field">
+          <span class="field-label">Adress</span>
+          <input type="text" placeholder="Gatuadress, postnummer och ort" />
+        </div>
+        <div class="field">
+          <span class="field-label">Organisationsnummer</span>
+          <input type="text" placeholder="XXXXXX-XXXX" />
+        </div>
+      </div>
+      <div class="field-grid cols-1">
+        <div class="field">
+          <span class="field-label">Arbetsplats</span>
+          <input type="text" placeholder="Namn på arbetsplatsen" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERSONUPPGIFTER -->
+  <div class="section">
+    <div class="section-title">Personuppgifter</div>
+    <div class="section-body">
+      <div class="field-grid cols-1-1-1r">
+        <div class="field">
+          <span class="field-label">Förnamn</span>
+          <input type="text" placeholder="Förnamn" />
+        </div>
+        <div class="field">
+          <span class="field-label">Efternamn</span>
+          <input type="text" placeholder="Efternamn" />
+        </div>
+        <div class="field">
+          <span class="field-label">Personnummer</span>
+          <input type="text" placeholder="YYYYMMDD-XXXX" />
+        </div>
+      </div>
+      <div class="field-grid cols-addr">
+        <div class="field">
+          <span class="field-label">Adress</span>
+          <input type="text" placeholder="Gatuadress" />
+        </div>
+        <div class="field">
+          <span class="field-label">Postnummer</span>
+          <input type="text" placeholder="XXX XX" />
+        </div>
+        <div class="field">
+          <span class="field-label">Postadress</span>
+          <input type="text" placeholder="Ort" />
+        </div>
+      </div>
+      <div class="field-grid cols-2-1">
+        <div class="field">
+          <span class="field-label">E-post</span>
+          <input type="email" placeholder="epost@exempel.se" />
+        </div>
+        <div class="field">
+          <span class="field-label">Telefon</span>
+          <input type="tel" placeholder="+46 XXX XXX XXX" />
+        </div>
+      </div>
+      <div class="field-grid cols-2-1">
+        <div class="field">
+          <span class="field-label">Anställningsnummer</span>
+          <input type="text" placeholder="" />
+        </div>
+        <div class="field">
+          <span class="field-label">Mobilnummer</span>
+          <input type="tel" placeholder="+46 7XX XXX XXX" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANSTÄLLNINGSFORM -->
+  <div class="section">
+    <div class="section-title">Anställningsform (ange endast ett alternativ)</div>
+    <div class="check-section">
+      <div class="check-row">
+        <input type="checkbox" class="check-box" id="prov" name="ansform" />
+        <label for="prov">Provanställning</label>
+        <div class="date-range"><span>Från</span><input type="text" id="prov_from" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"><span>Tom</span><input type="text" id="prov_tom" placeholder="ÅÅÅÅ-MM-DD" /></div>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" class="check-box" id="tillsv" name="ansform" />
+        <label for="tillsv">Tillsvidareanställning</label>
+        <div class="date-range"><span>Från</span><input type="text" id="tillsv_from" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"></div>
+      </div>
+
+      <div class="check-row header-row">
+        <span></span>
+        <span>Tidsbegränsade anställningar</span>
+        <span></span><span></span>
+      </div>
+
+      <div class="check-row indent">
+        <input type="checkbox" class="check-box" id="allman" name="ansform" />
+        <label for="allman">Allmän visstidsanställning</label>
+        <div class="date-range"><span>Från</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"><span>Tom</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+      </div>
+      <div class="check-row indent">
+        <input type="checkbox" class="check-box" id="vikariat" name="ansform" />
+        <label for="vikariat">Vikariat</label>
+        <div class="date-range"><span>Från</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"><span>Tom</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+      </div>
+      <div class="check-row indent" style="grid-template-columns:28px 180px 1fr; gap:8px;">
+        <input type="checkbox" class="check-box" id="ejvikariat" name="ansform" />
+        <label for="ejvikariat">Icke tidsbestämt vikariat</label>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
+          <span>Från</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" style="width:110px;font-size:12px;font-family:var(--font);border:none;border-bottom:1px solid var(--border);background:transparent;outline:none;" />
+          <span>till dess namn/befattning</span><input type="text" placeholder="" style="width:140px;font-size:12px;font-family:var(--font);border:none;border-bottom:1px solid var(--border);background:transparent;outline:none;" />
+          <span>återkommer i tjänst dock längst till</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" style="width:110px;font-size:12px;font-family:var(--font);border:none;border-bottom:1px solid var(--border);background:transparent;outline:none;" />
+        </div>
+      </div>
+      <div class="check-row indent">
+        <input type="checkbox" class="check-box" id="sason" name="ansform" />
+        <label for="sason">Säsongsarbete</label>
+        <div class="date-range"><span>Från</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"><span>Tom</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+      </div>
+      <div class="check-row indent">
+        <input type="checkbox" class="check-box" id="over67" name="ansform" />
+        <label for="over67">Arbetstagare som har fyllt 67 år</label>
+        <div class="date-range"><span>Från</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"><span>Tom</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+      </div>
+      <div class="check-row indent">
+        <input type="checkbox" class="check-box" id="enstaka" name="ansform" />
+        <label for="enstaka">Anställning för enstaka dagar</label>
+        <div class="date-range"><span>Från</span><input type="text" placeholder="ÅÅÅÅ-MM-DD" /></div>
+        <div class="date-range"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARBETSTIDER -->
+  <div class="section work-section">
+    <div class="section-title">Arbetstider och uppgifter om anställningen</div>
+    <div style="display:grid;grid-template-columns:1fr 2fr 1fr;border-top:1px solid var(--border);">
+      <div class="group-select">
+        <span class="field-label">Anställning</span>
+        <label class="group-option"><input type="radio" name="grupp" class="radio-box" /> Grupp 1, kvalificerat yrkesarbete</label>
+        <label class="group-option"><input type="radio" name="grupp" class="radio-box" /> Grupp 2, yrkesarbete</label>
+        <label class="group-option"><input type="radio" name="grupp" class="radio-box" /> Grupp 3, yrkesarbetare, ej fyllda 20 år</label>
+      </div>
+      <div style="border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px 10px;">
+        <div class="field-label">Yrkesbenämning eller tjänstetitel</div>
+        <input type="text" placeholder="T.ex. Head Chef – Indian Cuisine" style="font-family:var(--font);font-size:14px;font-weight:500;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--text);outline:none;width:100%;margin-top:4px;" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='transparent'" />
+        <div class="field-label" style="margin-top:12px;">Huvudsakliga arbetsuppgifter</div>
+        <input type="text" placeholder="T.ex. As per SSYK code 3451" style="font-family:var(--font);font-size:13px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--text);outline:none;width:100%;margin-top:4px;" onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='transparent'" />
+      </div>
+      <div class="time-field">
+        <span class="field-label">Genomsnittlig veckoarbetstid (fylls ej vid anställning för enstaka dagar)</span>
+        <div class="tid-options">
+          <label class="tid-option"><input type="radio" name="tid" class="radio-box" /> Heltid</label>
+        </div>
+        <div class="tid-options" style="margin-top:4px;">
+          <label class="tid-option"><input type="radio" name="tid" class="radio-box" /> Deltid</label>
+          <input class="deltid-input" type="text" placeholder="" />
+          <span style="font-size:11px;color:var(--text-muted);">tim/v</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VID ANSTÄLLNINGENS TILLTRÄDE -->
+  <div class="section">
+    <div class="section-title">Vid anställningens tillträde gäller</div>
+    <div class="salary-grid">
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Månadslön</span>
+        <input type="text" placeholder="T.ex. 42000 SEK" />
+      </div>
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Timlön</span>
+        <input type="text" placeholder="" />
+      </div>
+      <div class="kost-field">
+        <span class="field-label">Kost</span>
+        <div class="kost-options">
+          <label class="kost-option"><input type="radio" name="kost" class="radio-box" /> Kost <input class="kost-amount" type="text" placeholder="" /> kr/dag</label>
+          <label class="kost-option"><input type="radio" name="kost" class="radio-box" checked /> Ej kost</label>
+        </div>
+      </div>
+      <div class="yrkes-field">
+        <span class="field-label">Styrkt yrkesvana</span>
+        <div class="yrkes-options">
+          <label class="yrkes-option"><input type="radio" name="yrkes" class="radio-box" /> Ja <input class="yrkes-years" type="text" placeholder="" /> år</label>
+          <label class="yrkes-option"><input type="radio" name="yrkes" class="radio-box" /> Nej</label>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid var(--border);">
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Uppstigning­sregler – Se kollektivavtal</span>
+        <input type="text" placeholder="HRF" />
+      </div>
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Semester</span>
+        <input type="text" placeholder="25 sem.dagar enligt kollektivavtal" />
+      </div>
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Arbetstillstånd / Uppehållstillstånd</span>
+        <input type="text" placeholder="" />
+      </div>
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Läkarintyg / Friskintyg</span>
+        <input type="text" placeholder="" />
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);">
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Yrkeskod</span>
+        <input type="text" placeholder="T.ex. 3451" />
+      </div>
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Löneut­betalningsdag</span>
+        <input type="text" placeholder="T.ex. 27th" />
+      </div>
+      <div class="field" style="border-bottom:1px solid var(--border);">
+        <span class="field-label">Lönekontonummer</span>
+        <input type="text" placeholder="" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ÖVRIGA VILLKOR -->
+  <div class="section">
+    <div class="section-title">Övriga villkor för anställningen</div>
+    <div class="notes-field">
+      <textarea rows="3" placeholder="Ange eventuella övriga villkor här…"></textarea>
+    </div>
+  </div>
+
+  <!-- SIGNATURES -->
+  <div class="section">
+    <div class="sig-block">
+      <div class="sig-date">
+        <span>Ort och datum:</span>
+        <input type="text" placeholder="T.ex. Umeå–2026-04-08" style="width:220px;" />
+      </div>
+      <div class="sig-grid">
+        <div>
+          <div class="sig-line">Arbetsgivarens underskrift</div>
+        </div>
+        <div>
+          <div class="sig-line">Arbetstagarens underskrift</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="doc-footer">
+    Anställningen gäller i övrigt kollektivavtal för hotell- och restaurangpersonal träffat mellan VISITA och Hotell- och restaurangfacket (HRF)
+  </div>
+
+
+</div><!-- #document -->
+</div><!-- .doc-wrapper -->
+
+<script>
+  function updateCompanyName(val) {
+    document.getElementById('companyNameDisplay').textContent = val || 'HOTELL OCH RESTAURANG FACKET';
+  }
+
+  function clearForm() {
+    if (!confirm('Vill du rensa alla fält?')) return;
+    document.querySelectorAll('#document input[type="text"], #document input[type="email"], #document input[type="tel"], #document textarea').forEach(el => el.value = '');
+    document.querySelectorAll('#document input[type="checkbox"]').forEach(el => el.checked = false);
+    document.querySelectorAll('#document input[type="radio"]').forEach(el => el.checked = false);
+  }
+
+  async function exportPDF() {
+    const btn = document.querySelector('.btn-primary');
+    btn.textContent = 'Genererar…';
+    btn.disabled = true;
+
+    try {
+      // Use browser print as PDF — most reliable for complex forms
+      window.print();
+    } catch(e) {
+      alert('Använd Ctrl+P / Cmd+P och välj "Spara som PDF" för att exportera.');
+    }
+
+    setTimeout(() => {
+      btn.textContent = '⬇ Exportera PDF';
+      btn.disabled = false;
+    }, 1500);
+  }
+</script>
+</body>
+</html>
