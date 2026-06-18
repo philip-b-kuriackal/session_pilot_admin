@@ -181,23 +181,37 @@ docs/
   onboarding-tool-reference.html   # original HTML offer-letter tool the builder mirrors
 src/
   hooks.server.ts         # Supabase SSR client, session, RBAC route guards, cookie security
-  lib/
+  app.html                # HTML shell (favicon → /SP.avif)
+  lib/                     # ── shared (used by both surfaces) ──
     types.ts              # shared row types + helpers (fullName, entryNetMinutes, brandNameFor…)
-    admin.css             # admin design system (tokens, components)
+    payslip.ts            # monthly pay computation (admin timesheets + employee payslips)
+    reports.ts            # report helpers
+    dates.ts              # date helpers
+    supabaseClient.ts     # browser/SSR Supabase client factory
     server/
       admin.ts            # service-role client + audit() helper
       attendance.ts       # rotating HMAC attendance-token sign/verify
-    components/           # TimeClock, QrScanner, UrgentOverlay, Post, BottomNav, Header…
+    app/                   # ── employee ("Proxie") app UI ──
+      app.css             # employee styles + global reset & :root design tokens
+      components/         # TimeClock, QrScanner, UrgentOverlay, Post, BottomNav, Header, SideNav…
+    admin/                 # ── admin + manager portal UI ──
+      admin.css           # admin/manager design system (scoped under .admin-shell)
+      ux.ts               # toast / confirm-dialog / busy-button helpers
+      components/         # Toasts, ConfirmDialog
   routes/
     login/                # email/password sign-in (+ logout action)
-    (app)/                # employee mobile app (feed, schedule, tasks, hub, you, directory,
-                          #   notifications, chat*, checkin)
+    (app)/                # employee mobile/laptop app (feed, schedule, tasks, hub, you, directory,
+                          #   notifications, chat*, checkin) — uses src/lib/app
     display/[key]/        # public no-login attendance QR screen
-    admin/                # dashboard, live, approvals, tasks, sops, schedule, locations,
-                          #   users, timesheets, attendance-code, reports, audit, settings…
+    admin/                # admin + manager portal (dashboard, live, approvals, tasks, sops, schedule,
+                          #   locations, users, timesheets, reports, audit, settings…) — uses src/lib/admin
 ```
 
 \* Chat is hidden unless enabled per location.
+
+**UI is split by surface:** `src/lib/app/` holds the employee app's components and styles;
+`src/lib/admin/` holds the admin + manager portal's components, styles, and UX helpers. Code shared
+by both (row types, pay computation, Supabase client, server helpers) lives directly under `src/lib/`.
 
 ---
 

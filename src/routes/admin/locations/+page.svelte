@@ -35,6 +35,14 @@
         <label class="field"><span>Phone</span><input type="text" name="phone" /></label>
         <label class="field"><span>Email</span><input type="email" name="email" /></label>
       </div>
+
+      <h3 style="margin: 1.5rem 0 0.75rem; font-size: 1rem; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Location Manager (Optional)</h3>
+      <div class="form-grid">
+        <label class="field"><span>Manager First Name</span><input type="text" name="manager_first_name" placeholder="e.g. John" /></label>
+        <label class="field"><span>Manager Last Name</span><input type="text" name="manager_last_name" placeholder="e.g. Doe" /></label>
+        <label class="field"><span>Manager Email</span><input type="email" name="manager_email" placeholder="e.g. manager@example.com" /></label>
+        <label class="field"><span>Manager Password</span><input type="password" name="manager_password" placeholder="Min 8 characters" /></label>
+      </div>
       <div class="form-actions">
         <button class="btn primary" type="submit">Create location</button>
       </div>

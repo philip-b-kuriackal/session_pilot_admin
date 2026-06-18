@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
   let editing = $state<string | null>(null);
+  let createOpen = $state(false);
 
   const priorities = ['low', 'medium', 'high', 'critical'];
   const priorityBadge: Record<string, string> = {
@@ -19,11 +21,7 @@
   </div>
 </div>
 
-{#if form?.message}
-  <div class="alert error">{form.message}</div>
-{/if}
-
-<details class="create-panel">
+<details class="create-panel" bind:open={createOpen}>
   <summary>+ Add responsibility</summary>
   <div class="panel-body">
     <form method="POST" action="?/create" use:enhance>
@@ -85,7 +83,7 @@
                 <button class="btn sm" onclick={() => (editing = editing === r.id ? null : r.id)}>
                   {editing === r.id ? 'Close' : 'Edit'}
                 </button>
-                <form method="POST" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${r.name}?`)) e.preventDefault(); }}>
+                <form method="POST" action="?/delete" use:enhance onsubmit={confirmSubmit(`Delete ${r.name}?`)}>
                   <input type="hidden" name="id" value={r.id} />
                   <button class="btn sm danger" type="submit">Delete</button>
                 </form>
@@ -130,7 +128,7 @@
             </tr>
           {/if}
         {:else}
-          <tr><td colspan="6" class="empty">No responsibilities yet.</td></tr>
+          <tr><td colspan="6" class="empty">No responsibilities yet.<br /><button type="button" class="btn primary" onclick={() => (createOpen = true)}>+ Add responsibility</button></td></tr>
         {/each}
       </tbody>
     </table>

@@ -1,6 +1,23 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
+  import { onMount, onDestroy } from 'svelte';
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
+
+  let intervalId: ReturnType<typeof setInterval>;
+
+  onMount(() => {
+    // Enable Real-time updates! Poll every 2 seconds so the dashboard updates instantly
+    // when the user presses Check-in, Pause, or Check-out on their mobile app.
+    intervalId = setInterval(() => {
+      invalidateAll();
+    }, 2000);
+  });
+
+  onDestroy(() => {
+    if (intervalId) clearInterval(intervalId);
+  });
 
   function fmtMinutes(mins: number): string {
     const sign = mins < 0 ? '−' : '';
@@ -32,8 +49,6 @@
 <div class="no-print">
   <a href="/admin/timesheets?month={data.month}" class="back">← Back to timesheets</a>
 </div>
-
-{#if form?.message}<div class="alert error no-print">{form.message}</div>{/if}
 
 <div class="sheet">
   <div class="page-head">
@@ -147,7 +162,7 @@
                 <td>{a.reason}</td>
                 <td>{a.created_by_name}</td>
                 <td class="no-print">
-                  <form method="POST" action="?/deleteAdjustment" use:enhance onsubmit={(ev) => { if (!confirm('Delete this adjustment?')) ev.preventDefault(); }}>
+                  <form method="POST" action="?/deleteAdjustment" use:enhance onsubmit={confirmSubmit('Delete this adjustment?')}>
                     <input type="hidden" name="id" value={a.id} />
                     <button class="btn sm danger" type="submit">Delete</button>
                   </form>

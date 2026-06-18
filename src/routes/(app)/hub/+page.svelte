@@ -1,9 +1,16 @@
 <script lang="ts">
-  import BottomNav from '$lib/components/BottomNav.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
   import { page } from '$app/stores';
+  import { aboutUsLessonKeys, QUIZ_KEY } from './lessons';
 
   // Restaurant name assigned by the admin
   let brandName = $derived($page.data.brandName ?? 'our restaurant');
+
+  // Real onboarding progress: the 4 about-us lessons + the welcome quiz
+  let completions = $derived<string[]>($page.data.completions ?? []);
+  let trackableKeys = $derived([...aboutUsLessonKeys(brandName), QUIZ_KEY]);
+  let completedCount = $derived(trackableKeys.filter((k) => completions.includes(k)).length);
+  let progressPct = $derived(Math.round((completedCount / trackableKeys.length) * 100));
 
   const heroImage = '/dummy image 4.jpg'; // Using dummy image 4 as hero placeholder
   const logoImage = '/proxie_studio_logo.svg';
@@ -17,9 +24,9 @@
 
   let cards = $derived([
     { title: `The Story of ${brandName} 📖`, bgColor: '#d05b15', image: null, link: '/hub/story' },
-    { title: "What You'll Need 👩‍🍳", bgColor: null, image: cardImage1, link: '#' },
-    { title: 'What We Serve 🍗', bgColor: null, image: cardImage2, link: '#' },
-    { title: 'House Rules 🏡', bgColor: '#eab308', image: null, link: '#' }
+    { title: "What You'll Need 👩‍🍳", bgColor: null, image: cardImage1, link: '/hub/welcome' },
+    { title: 'What We Serve 🍗', bgColor: null, image: cardImage2, link: '/hub/welcome' },
+    { title: 'House Rules 🏡', bgColor: '#eab308', image: null, link: '/hub/welcome' }
   ]);
 </script>
 
@@ -43,37 +50,35 @@
       <img src={logoImage} alt="{brandName} Logo" />
     </div>
 
-    <!-- Header & AI Search -->
+    <!-- Header -->
     <div class="hub-header">
       <h1>Hub</h1>
-      <button class="ai-search-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="10" rx="2"></rect>
-          <circle cx="12" cy="5" r="2"></circle>
-          <path d="M12 7v4"></path>
-          <line x1="8" y1="16" x2="8" y2="16"></line>
-          <line x1="16" y1="16" x2="16" y2="16"></line>
-        </svg>
-        <span>Ask me anything...</span>
-      </button>
     </div>
 
     <!-- Welcome Card -->
     <a href="/hub/welcome" class="welcome-card" style="text-decoration: none; display: flex;">
       <div class="welcome-content">
         <h2>Welcome To {brandName}! <span>→</span></h2>
-        <div class="reminder">
-          <span class="warning-icon">⚠️</span>
-          <span>Quick reminder, this one's overdue</span>
-        </div>
-        <p>Take a moment to complete it now! 🙌</p>
+        {#if progressPct >= 100}
+          <div class="reminder">
+            <span class="warning-icon">🎉</span>
+            <span>Onboarding complete — nice work!</span>
+          </div>
+          <p>Feel free to revisit any lesson 🙌</p>
+        {:else}
+          <div class="reminder">
+            <span class="warning-icon">⚠️</span>
+            <span>Quick reminder, this one's still open</span>
+          </div>
+          <p>Take a moment to complete it now! 🙌</p>
+        {/if}
       </div>
       <div class="progress-circle">
         <svg viewBox="0 0 36 36">
           <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-          <path class="circle" stroke-dasharray="50, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+          <path class="circle" stroke-dasharray="{progressPct}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
         </svg>
-        <span class="progress-text">50</span>
+        <span class="progress-text">{progressPct}</span>
       </div>
     </a>
 
@@ -197,24 +202,6 @@
     margin: 0;
     color: var(--color-text, #111);
     letter-spacing: -0.03em;
-  }
-
-  .ai-search-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background-color: var(--color-surface, #f3f4f6);
-    border: none;
-    padding: 0.75rem 1rem;
-    border-radius: 20px;
-    color: var(--color-text-muted, #666);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  
-  :global(body.dark) .ai-search-btn {
-    background-color: #2a2a2a;
   }
 
   .welcome-card {

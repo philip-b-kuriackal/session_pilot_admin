@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
   let editing = $state<string | null>(null);
+  let companyPanelOpen = $state(false);
 </script>
 
 <div class="page-head">
@@ -10,10 +12,6 @@
     <p>Feature flags and organization configuration.</p>
   </div>
 </div>
-
-{#if form?.message}
-  <div class="alert error">{form.message}</div>
-{/if}
 
 <div class="card">
   <h2>Organization</h2>
@@ -37,7 +35,7 @@
     Legal entities used on employment documents and offer letters. You can register several.
   </p>
 
-  <details class="create-panel" style="margin-bottom: 1rem;">
+  <details class="create-panel" style="margin-bottom: 1rem;" bind:open={companyPanelOpen}>
     <summary>+ Add company</summary>
     <div class="panel-body">
       <form method="POST" action="?/createCompany" use:enhance>
@@ -81,7 +79,7 @@
                 <button class="btn sm" onclick={() => (editing = editing === c.id ? null : c.id)}>
                   {editing === c.id ? 'Close' : 'Edit'}
                 </button>
-                <form method="POST" action="?/deleteCompany" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${c.name}?`)) e.preventDefault(); }}>
+                <form method="POST" action="?/deleteCompany" use:enhance onsubmit={confirmSubmit(`Delete ${c.name}?`)}>
                   <input type="hidden" name="id" value={c.id} />
                   <button class="btn sm danger" type="submit">Delete</button>
                 </form>
@@ -116,7 +114,7 @@
             </tr>
           {/if}
         {:else}
-          <tr><td colspan="6" class="empty">No companies yet. Use “+ Add company” above.</td></tr>
+          <tr><td colspan="6" class="empty">No companies yet.<br /><button type="button" class="btn primary" onclick={() => (companyPanelOpen = true)}>+ Add company</button></td></tr>
         {/each}
       </tbody>
     </table>

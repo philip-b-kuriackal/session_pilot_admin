@@ -1,13 +1,13 @@
 <script lang="ts">
-  import Header from '$lib/components/Header.svelte';
-  import TimeClock from '$lib/components/TimeClock.svelte';
-  import Stories from '$lib/components/Stories.svelte';
-  import HighlightCards from '$lib/components/HighlightCards.svelte';
-  import Post from '$lib/components/Post.svelte';
-  import LearningProgress from '$lib/components/LearningProgress.svelte';
-  import FloatingActionButton from '$lib/components/FloatingActionButton.svelte';
-  import BottomNav from '$lib/components/BottomNav.svelte';
-  import CreatePostModal from '$lib/components/CreatePostModal.svelte';
+  import Header from '$lib/app/components/Header.svelte';
+  import TimeClock from '$lib/app/components/TimeClock.svelte';
+  import Stories from '$lib/app/components/Stories.svelte';
+  import HighlightCards from '$lib/app/components/HighlightCards.svelte';
+  import Post from '$lib/app/components/Post.svelte';
+  import LearningProgress from '$lib/app/components/LearningProgress.svelte';
+  import FloatingActionButton from '$lib/app/components/FloatingActionButton.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
+  import CreatePostModal from '$lib/app/components/CreatePostModal.svelte';
   import { page } from '$app/stores';
 
   let { data } = $props();

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
   let editing = $state<string | null>(null);
+  let createOpen = $state(false);
 
   function linkedIds(j: any): string[] {
     return (j.job_role_responsibilities ?? [])
@@ -17,11 +19,7 @@
   </div>
 </div>
 
-{#if form?.message}
-  <div class="alert error">{form.message}</div>
-{/if}
-
-<details class="create-panel">
+<details class="create-panel" bind:open={createOpen}>
   <summary>+ Add job role</summary>
   <div class="panel-body">
     <form method="POST" action="?/create" use:enhance>
@@ -88,7 +86,7 @@
                 <button class="btn sm" onclick={() => (editing = editing === j.id ? null : j.id)}>
                   {editing === j.id ? 'Close' : 'Edit'}
                 </button>
-                <form method="POST" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${j.name}?`)) e.preventDefault(); }}>
+                <form method="POST" action="?/delete" use:enhance onsubmit={confirmSubmit(`Delete ${j.name}?`)}>
                   <input type="hidden" name="id" value={j.id} />
                   <button class="btn sm danger" type="submit">Delete</button>
                 </form>
@@ -129,7 +127,7 @@
             </tr>
           {/if}
         {:else}
-          <tr><td colspan="6" class="empty">No job roles yet.</td></tr>
+          <tr><td colspan="6" class="empty">No job roles yet.<br /><button type="button" class="btn primary" onclick={() => (createOpen = true)}>+ Add job role</button></td></tr>
         {/each}
       </tbody>
     </table>

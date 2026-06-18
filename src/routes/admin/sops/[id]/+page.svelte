@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
 
   let editingStep = $state<string | null>(null);
@@ -15,10 +16,6 @@
     <p>Edit SOP details and build out its steps.</p>
   </div>
 </div>
-
-{#if form?.message}
-  <div class="alert error">{form.message}</div>
-{/if}
 
 <!-- SOP details -->
 <div class="card">
@@ -72,7 +69,7 @@
             <button class="btn sm" onclick={() => (editingStep = editingStep === step.id ? null : step.id)}>
               {editingStep === step.id ? 'Close' : 'Edit'}
             </button>
-            <form method="POST" action="?/deleteStep" use:enhance onsubmit={(e) => { if (!confirm(`Delete step ${step.step_number}?`)) e.preventDefault(); }}>
+            <form method="POST" action="?/deleteStep" use:enhance onsubmit={confirmSubmit(`Delete step ${step.step_number}?`)}>
               <input type="hidden" name="step_id" value={step.id} />
               <button class="btn sm danger" type="submit">Delete</button>
             </form>

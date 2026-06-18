@@ -1,10 +1,16 @@
 <script lang="ts">
-  import BottomNav from '$lib/components/BottomNav.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import OnboardingBadgeModal from '$lib/components/OnboardingBadgeModal.svelte';
+  import OnboardingBadgeModal from '$lib/app/components/OnboardingBadgeModal.svelte';
+  import { aboutUsLessonKeys, QUIZ_KEY } from '../lessons';
 
   let brandName = $derived($page.data.brandName ?? 'our restaurant');
+
+  // Real learning progress (loaded by hub/+layout.server.ts)
+  let completions = $derived<string[]>($page.data.completions ?? []);
+  let aboutUsDone = $derived(aboutUsLessonKeys(brandName).every((k) => completions.includes(k)));
+  let quizDone = $derived(completions.includes(QUIZ_KEY));
 
   const heroImage = '/dummy image 4.jpg'; // Using dummy image 4 as hero placeholder for employee picture
   
@@ -71,51 +77,53 @@
           <path d="M 90 530 C 90 600, 160 600, 160 650" fill="none" stroke="#ccc" stroke-width="3" stroke-dasharray="8,8" stroke-linecap="round" />
         </svg>
 
-        <!-- Node 1 -->
+        <!-- Node 1 — About us (completed when every about-us lesson is done) -->
         <a href="/hub/welcome/about-us" class="timeline-node" style="top: 40px; left: 50px; text-decoration: none;">
-          <div class="node-circle active">
+          <div class="node-circle {aboutUsDone ? 'active' : 'pending'}">
             <img src={img1} alt="About us" />
-            <div class="node-badge success">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
+            {#if aboutUsDone}
+              <div class="node-badge success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </div>
+            {/if}
           </div>
           <div class="node-label">A bit about<br/>us...</div>
         </a>
 
-        <!-- Node 2 -->
-        <div class="timeline-node" style="top: 190px; left: 190px;">
-          <div class="node-circle active">
-            <img src={img2} alt="Our Menu" />
-            <div class="node-badge success">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
+        <!-- Node 2 — Our Menu (content not available yet) -->
+        <div class="timeline-node coming-soon" style="top: 190px; left: 190px;">
+          <div class="node-circle pending">
+            <img src={img2} alt="Our Menu" style="opacity: 0.5; filter: grayscale(100%);" />
           </div>
           <div class="node-label">Our Menu!</div>
+          <div class="soon-pill">coming soon</div>
         </div>
 
-        <!-- Node 3 -->
-        <div class="timeline-node" style="top: 340px; left: 120px;">
+        <!-- Node 3 — Workshop (content not available yet) -->
+        <div class="timeline-node coming-soon" style="top: 340px; left: 120px;">
           <div class="node-circle pending">
-            <img src={img3} alt="Workshop" />
+            <img src={img3} alt="Workshop" style="opacity: 0.5; filter: grayscale(100%);" />
           </div>
           <div class="node-label">In person<br/>workshop</div>
+          <div class="soon-pill">coming soon</div>
         </div>
 
-        <!-- Node 4 -->
+        <!-- Node 4 — Quiz (completed when 'welcome.quiz' is recorded) -->
         <a href="/hub/welcome/quiz" class="timeline-node" style="top: 490px; left: 50px; text-decoration: none;">
-          <div class="node-circle pending">
-            <img src={img1} alt="Before shift" style="opacity: 0.5; filter: grayscale(100%);" />
-            <div class="node-badge alert">
-              <svg viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-            </div>
+          <div class="node-circle {quizDone ? 'active' : 'pending'}">
+            <img src={img1} alt="Before shift" style={quizDone ? '' : 'opacity: 0.5; filter: grayscale(100%);'} />
+            {#if quizDone}
+              <div class="node-badge success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </div>
+            {/if}
           </div>
           <div class="node-label">Before your<br/>first shift...</div>
-          <div class="overdue-pill">overdue</div>
         </a>
 
-        <!-- Node 5 (Badge) -->
+        <!-- Node 5 (Badge) — earned once the quiz is passed -->
         <div class="timeline-node" style="top: 660px; left: 120px;">
-          <div class="completion-badge">
+          <div class="completion-badge" class:locked={!quizDone}>
             <img src={badgeIcon} alt="Badge" />
             <div class="badge-text">ONBOARDING<br/>COMPLETE</div>
           </div>
@@ -295,15 +303,6 @@
     height: 14px;
   }
 
-  .node-badge.alert {
-    background-color: #ef4444;
-  }
-  
-  .node-badge.alert svg {
-    width: 12px;
-    height: 12px;
-  }
-
   .node-label {
     text-align: center;
     font-size: 0.8rem;
@@ -314,15 +313,19 @@
     width: 120px;
   }
 
-  .overdue-pill {
-    background-color: #fde68a;
-    color: #b45309;
+  .soon-pill {
+    background-color: #e5e7eb;
+    color: #6b7280;
     font-size: 0.7rem;
     font-weight: 700;
     padding: 0.2rem 0.6rem;
     border-radius: 10px;
     margin-top: 0.4rem;
     text-transform: lowercase;
+  }
+
+  .timeline-node.coming-soon .node-label {
+    color: var(--color-text-muted, #888);
   }
 
   .completion-badge {
@@ -340,6 +343,11 @@
     height: 60px;
     object-fit: contain;
     /* We assume this is an SVG badge, if not we could use a pure CSS starburst */
+  }
+
+  .completion-badge.locked {
+    filter: grayscale(100%);
+    opacity: 0.45;
   }
 
   .badge-text {

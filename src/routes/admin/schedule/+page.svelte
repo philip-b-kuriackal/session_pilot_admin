@@ -1,9 +1,14 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { fullName } from '$lib/types';
+  import { confirmSubmit, confirmDialog } from '$lib/admin/ux';
 
   let { data, form } = $props();
+
+  // Empty-state CTAs open these collapsed create panels.
+  let holidayPanelOpen = $state(false);
+  let eventPanelOpen = $state(false);
 
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -18,11 +23,6 @@
   function shortDate(dateStr: string): string {
     const [, m, d] = dateStr.split('-').map(Number);
     return `${d} ${MONTHS[m - 1]}`;
-  }
-
-  /** Friendly readable label for a day option in selects. */
-  function dayOptionLabel(dateStr: string, idx: number): string {
-    return `${DAY_NAMES[idx]} ${shortDate(dateStr)}`;
   }
 
   /** Trim "HH:MM:SS" / "HH:MM" to "HH:MM". */
@@ -55,6 +55,16 @@
     const params = new URLSearchParams();
     if (data.locationId) params.set('location', data.locationId);
     params.set('week', week);
+    params.set('view', 'week');
+    return `/admin/schedule?${params.toString()}`;
+  }
+
+  /** Build an admin-schedule URL with an explicit week and/or view. */
+  function buildHref(opts: { week?: string; view?: 'week' | 'month' }): string {
+    const params = new URLSearchParams();
+    if (data.locationId) params.set('location', data.locationId);
+    params.set('week', opts.week ?? data.weekStart);
+    params.set('view', opts.view ?? data.view);
     return `/admin/schedule?${params.toString()}`;
   }
 
@@ -658,14 +668,122 @@
     }
   }
 
-  // Copy-day tool state.
-  let copySource = $state('');
-  let copyTarget = $state('');
-  $effect(() => {
-    // Seed sensible defaults once week dates are available.
-    if (!copySource && data.weekDates.length) copySource = data.weekDates[0];
-    if (!copyTarget && data.weekDates.length > 1) copyTarget = data.weekDates[1];
+  // ============================================================
+  //  MONTH VIEW — per-day coverage for the calendar grid
+  // ============================================================
+
+  /** Add n days to a YYYY-MM-DD string (client mirror of the server helper). */
+  function addDaysStr(dateStr: string, n: number): string {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + n);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  /** ISO weekday key (1=Mon..7=Sun) for a date — matches opening_hours keys. */
+  function dowKey(dateStr: string): number {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay(); // 0 Sun..6 Sat
+    return dow === 0 ? 7 : dow;
+  }
+
+  /** Opening hours for an arbitrary date (vs hoursFor, which takes a week column). */
+  function hoursForDate(dateStr: string): { open: string; close: string } | null {
+    const oh = (data.location?.opening_hours ?? {}) as Record<string, { open: string; close: string } | null>;
+    return oh?.[String(dowKey(dateStr))] ?? null;
+  }
+  function shiftsForDate(dateStr: string): any[] {
+    return data.shifts.filter((s: any) => s.shift_date === dateStr);
+  }
+  function holidayForDate(dateStr: string): boolean {
+    return data.holidays.some((h: any) => h.date === dateStr);
+  }
+
+  /** Uncovered gaps for a role on a given date (date-based twin of dayRowGaps). */
+  function dateRowGaps(dateStr: string, row: string, open: number, close: number) {
+    if (close <= open) return [] as { start: number; end: number }[];
+    const key = row.trim().toLowerCase();
+    const iv = shiftsForDate(dateStr)
+      .filter((s: any) => rowForShift(s).trim().toLowerCase() === key)
+      .map((s: any) => ({ start: Math.max(open, toMinutes(s.start_time)), end: Math.min(close, toMinutes(s.end_time)) }))
+      .filter((i: { start: number; end: number }) => i.end > i.start)
+      .sort((a: any, b: any) => a.start - b.start);
+    const gaps: { start: number; end: number }[] = [];
+    let cursor = open;
+    for (const it of iv) {
+      if (it.start > cursor) gaps.push({ start: cursor, end: it.start });
+      cursor = Math.max(cursor, it.end);
+    }
+    if (cursor < close) gaps.push({ start: cursor, end: close });
+    return gaps;
+  }
+
+  /** Coverage summary for one month-grid day cell. */
+  function dayCoverage(dateStr: string): {
+    status: 'closed' | 'holiday' | 'none' | 'missing' | 'partial' | 'full';
+    count: number;
+  } {
+    const count = shiftsForDate(dateStr).length;
+    if (holidayForDate(dateStr)) return { status: 'holiday', count };
+    if (hoursForDate(dateStr) === null) return { status: 'closed', count };
+    if (count === 0) return { status: 'none', count };
+    const req = requiredRoleNames;
+    if (!req.length) return { status: 'full', count };
+    const covered = new Set<string>();
+    for (const s of shiftsForDate(dateStr)) {
+      covered.add(rowForShift(s).trim().toLowerCase());
+      const r = shiftRole(s);
+      if (r) covered.add(r.trim().toLowerCase());
+    }
+    if (req.some((n: string) => !covered.has(n.trim().toLowerCase()))) return { status: 'missing', count };
+    const h = hoursForDate(dateStr)!;
+    const open = Math.max(T_START, toMinutes(h.open));
+    const close = Math.min(T_END, toMinutes(h.close));
+    const anyGap = req.some((n: string) => dateRowGaps(dateStr, n, open, close).length > 0);
+    return { status: anyGap ? 'partial' : 'full', count };
+  }
+
+  /** Navigate to the week containing a date (used by month-grid day clicks). */
+  function openWeek(dateStr: string) {
+    goto(buildHref({ week: dateStr, view: 'week' }));
+  }
+
+  // ============================================================
+  //  DUPLICATE MODE — pick days, copy them into a target week
+  // ============================================================
+  let dupMode = $state(false);
+  let dupSelected = $state<string[]>([]); // chosen source days (YYYY-MM-DD)
+  let dupTarget = $state(''); // target week's Monday
+
+  // Target-week options: this week's Monday plus the next 9 weeks.
+  const weekOptions = $derived.by(() => {
+    const opts: { value: string; label: string }[] = [];
+    for (let i = 0; i < 10; i++) {
+      const mon = addDaysStr(data.thisWeek, i * 7);
+      opts.push({ value: mon, label: `Week of ${shortDate(mon)}` });
+    }
+    return opts;
   });
+  $effect(() => {
+    if (!dupTarget && weekOptions.length) dupTarget = (weekOptions[1] ?? weekOptions[0]).value;
+  });
+
+  function toggleDupMode() {
+    dupMode = !dupMode;
+    if (!dupMode) dupSelected = [];
+  }
+  function toggleDaySelect(dateStr: string) {
+    dupSelected = dupSelected.includes(dateStr)
+      ? dupSelected.filter((d) => d !== dateStr)
+      : [...dupSelected, dateStr];
+  }
+  function cancelDup() {
+    dupMode = false;
+    dupSelected = [];
+  }
+  const dupTargetLabel = $derived(weekOptions.find((o) => o.value === dupTarget)?.label ?? '');
 
   // Holiday-add default date.
   let holidayDate = $state('');
@@ -687,11 +805,7 @@
   </div>
 </div>
 
-{#if form?.message}
-  <div class="alert {form.success ? 'success' : 'error'}">{form.message}</div>
-{/if}
-
-<!-- Unified toolbar: location + week nav + copy tools -->
+<!-- Unified toolbar: location + week/month nav + view toggle + duplicate -->
 <div class="card sched-toolbar">
   <div class="st-row">
     <form method="GET" class="st-loc">
@@ -701,56 +815,96 @@
         {/each}
       </select>
       <input type="hidden" name="week" value={data.weekStart} />
+      <input type="hidden" name="view" value={data.view} />
     </form>
 
-    <div class="st-weeknav">
-      <a class="btn sm" href={scheduleHref(data.prevWeek)} aria-label="Previous week">←</a>
-      <strong class="st-weeklabel">{shortDate(data.weekStart)} – {shortDate(data.weekEnd)}</strong>
-      <a class="btn sm" href={scheduleHref(data.nextWeek)} aria-label="Next week">→</a>
-      <a class="btn sm" href={scheduleHref(data.thisWeek)}>Today</a>
-    </div>
+    {#if data.view === 'month'}
+      <div class="st-weeknav">
+        <a class="btn sm" href={buildHref({ week: data.prevMonth, view: 'month' })} aria-label="Previous month">←</a>
+        <strong class="st-weeklabel">{data.monthLabel}</strong>
+        <a class="btn sm" href={buildHref({ week: data.nextMonth, view: 'month' })} aria-label="Next month">→</a>
+        <a class="btn sm" href={buildHref({ week: data.thisWeek, view: 'month' })}>Today</a>
+      </div>
+    {:else}
+      <div class="st-weeknav">
+        <a class="btn sm" href={scheduleHref(data.prevWeek)} aria-label="Previous week">←</a>
+        <strong class="st-weeklabel">{shortDate(data.weekStart)} – {shortDate(data.weekEnd)}</strong>
+        <a class="btn sm" href={scheduleHref(data.nextWeek)} aria-label="Next week">→</a>
+        <a class="btn sm" href={scheduleHref(data.thisWeek)}>Today</a>
+      </div>
+    {/if}
 
     {#if data.locationId}
       <div class="st-tools">
-        <form method="POST" action="?/copyDay" use:enhance class="copy-day">
-          <input type="hidden" name="location_id" value={data.locationId} />
-          <span class="tool-label">Copy</span>
-          <select name="source" bind:value={copySource} aria-label="Source day">
-            {#each data.weekDates as d, i}
-              <option value={d}>{dayOptionLabel(d, i)}</option>
-            {/each}
-          </select>
-          <span class="arrow">→</span>
-          <select name="target" bind:value={copyTarget} aria-label="Target day">
-            {#each data.weekDates as d, i}
-              <option value={d}>{dayOptionLabel(d, i)}</option>
-            {/each}
-          </select>
-          <button class="btn sm" type="submit">Apply</button>
-        </form>
-
-        <form
-          method="POST"
-          action="?/copyWeek"
-          use:enhance
-          onsubmit={(e) => { if (!confirm('Duplicate every shift of this week into next week?')) e.preventDefault(); }}
-        >
-          <input type="hidden" name="location_id" value={data.locationId} />
-          <input type="hidden" name="week_start" value={data.weekStart} />
-          <button class="btn sm" type="submit">Duplicate week ⇒</button>
-        </form>
+        <div class="view-toggle" role="group" aria-label="View mode">
+          <a class="vt" class:active={data.view === 'week'} href={buildHref({ view: 'week' })}>Week</a>
+          <a class="vt" class:active={data.view === 'month'} href={buildHref({ view: 'month' })}>Month</a>
+        </div>
+        <button type="button" class="btn sm dup-toggle" class:dup-on={dupMode} onclick={toggleDupMode}>
+          {dupMode ? '✓ Selecting days' : '⧉ Duplicate'}
+        </button>
       </div>
     {/if}
   </div>
+  {#if dupMode}
+    <p class="dup-help">
+      Tap days to select them{data.view === 'month' ? ' across the month' : ''}, then choose a target week below.
+      Each day copies to the same weekday of that week.
+    </p>
+  {/if}
 </div>
 
 {#if !data.locationId}
-  <div class="card"><div class="empty">No locations yet. Create one first.</div></div>
+  <div class="card"><div class="empty">No locations yet. Create one first.<br /><a class="btn primary" href="/admin/locations">+ Add location</a></div></div>
 {:else}
+  {#if data.view === 'month'}
+  <!-- Month coverage calendar -->
+  <div class="card">
+    <h2>{data.monthLabel} — coverage</h2>
+    <div class="month-grid">
+      {#each ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as d}
+        <div class="mg-dow">{d}</div>
+      {/each}
+      {#each data.monthWeeks as week}
+        {#each week as cell}
+          {@const cov = dayCoverage(cell.date)}
+          {@const sel = dupMode && dupSelected.includes(cell.date)}
+          <button
+            type="button"
+            class="mg-cell status-{cov.status}"
+            class:out-month={!cell.inMonth}
+            class:today={cell.isToday}
+            class:dup-selected={sel}
+            onclick={() => (dupMode ? toggleDaySelect(cell.date) : openWeek(cell.date))}
+            title={dupMode ? 'Tap to select for duplication' : 'Open this week'}
+          >
+            <span class="mg-num">{cell.dayNum}</span>
+            {#if dupMode}<span class="mg-check">{sel ? '☑' : '☐'}</span>{/if}
+            <span class="mg-dot" aria-hidden="true"></span>
+            {#if cov.count > 0}
+              <span class="mg-count">{cov.count} shift{cov.count === 1 ? '' : 's'}</span>
+            {:else if cov.status === 'closed'}
+              <span class="mg-count muted-count">Closed</span>
+            {:else if cov.status === 'holiday'}
+              <span class="mg-count muted-count">Holiday</span>
+            {/if}
+          </button>
+        {/each}
+      {/each}
+    </div>
+    <div class="mg-legend">
+      <span><i class="lg full"></i> Fully covered</span>
+      <span><i class="lg partial"></i> Partial</span>
+      <span><i class="lg missing"></i> Missing role</span>
+      <span><i class="lg none"></i> No shifts</span>
+      <span><i class="lg closed"></i> Closed / holiday</span>
+    </div>
+  </div>
+  {:else}
   <!-- Week grid -->
   <div class="card">
     <h2>Weekly shifts</h2>
-    <div class="week-grid">
+    <div class="week-grid" class:dup-mode={dupMode}>
       {#each data.weekDates as dateStr, i}
         {@const closed = isClosed(i)}
         {@const hName = holidayName(i)}
@@ -761,14 +915,18 @@
           class:today={dateStr === data.today}
           class:closed
           class:holiday={!!hName}
+          class:dup-selected={dupMode && dupSelected.includes(dateStr)}
         >
           <button
             type="button"
             class="day-head"
             class:today={dateStr === data.today}
-            onclick={() => openPlanner(dateStr)}
-            title="Open day planner"
+            onclick={() => (dupMode ? toggleDaySelect(dateStr) : openPlanner(dateStr))}
+            title={dupMode ? 'Tap to select for duplication' : 'Open day planner'}
           >
+            {#if dupMode}
+              <span class="dh-check">{dupSelected.includes(dateStr) ? '☑' : '☐'}</span>
+            {/if}
             <div class="dh-top">{dayHeader(dateStr, i)}</div>
             <div class="dh-hours">{hoursLabel(i)}</div>
           </button>
@@ -785,9 +943,10 @@
                   type="button"
                   class="x"
                   title="Delete shift"
-                  onclick={(e) => {
-                    if (confirm('Delete this shift?')) {
-                      (e.currentTarget.nextElementSibling as HTMLFormElement)?.requestSubmit();
+                  onclick={async (e) => {
+                    const delForm = e.currentTarget.nextElementSibling as HTMLFormElement | null;
+                    if (await confirmDialog({ message: 'Delete this shift?', danger: true })) {
+                      delForm?.requestSubmit();
                     }
                   }}
                 >×</button>
@@ -824,7 +983,7 @@
             {/if}
 
             <!-- Open the day planner -->
-            {#if !closed}
+            {#if !closed && !dupMode}
               <button type="button" class="add-btn" onclick={() => openPlanner(dateStr)}>＋ Plan</button>
             {/if}
           </div>
@@ -837,6 +996,7 @@
       </p>
     {/if}
   </div>
+  {/if}
 
   <div class="two-col">
   <!-- Holidays -->
@@ -855,20 +1015,20 @@
               <td>{longDate(h.date)}</td>
               <td>{h.location?.name ?? 'All locations'}</td>
               <td>
-                <form method="POST" action="?/deleteHoliday" use:enhance onsubmit={(e) => { if (!confirm(`Delete holiday "${h.name}"?`)) e.preventDefault(); }}>
+                <form method="POST" action="?/deleteHoliday" use:enhance onsubmit={confirmSubmit(`Delete holiday "${h.name}"?`)}>
                   <input type="hidden" name="id" value={h.id} />
                   <button class="btn sm danger" type="submit">Delete</button>
                 </form>
               </td>
             </tr>
           {:else}
-            <tr><td colspan="4" class="empty">No upcoming holidays.</td></tr>
+            <tr><td colspan="4" class="empty">No upcoming holidays.<br /><button type="button" class="btn primary" onclick={() => (holidayPanelOpen = true)}>+ Add holiday</button></td></tr>
           {/each}
         </tbody>
       </table>
     </div>
 
-    <details class="create-panel" style="margin-top:1rem;">
+    <details class="create-panel" style="margin-top:1rem;" bind:open={holidayPanelOpen}>
       <summary>+ Add holiday</summary>
       <div class="panel-body">
         <form method="POST" action="?/addHoliday" use:enhance>
@@ -910,21 +1070,21 @@
             <td>{whenLabel(ev.starts_at)}</td>
             <td>{joiningCount(ev)}</td>
             <td>
-              <form method="POST" action="?/deleteEvent" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${ev.title}?`)) e.preventDefault(); }}>
+              <form method="POST" action="?/deleteEvent" use:enhance onsubmit={confirmSubmit(`Delete ${ev.title}?`)}>
                 <input type="hidden" name="id" value={ev.id} />
                 <button class="btn sm danger" type="submit">Delete</button>
               </form>
             </td>
           </tr>
         {:else}
-          <tr><td colspan="5" class="empty">No upcoming events.</td></tr>
+          <tr><td colspan="5" class="empty">No upcoming events.<br /><button type="button" class="btn primary" onclick={() => (eventPanelOpen = true)}>+ Create event</button></td></tr>
         {/each}
       </tbody>
     </table>
   </div>
 </div>
 
-<details class="create-panel">
+<details class="create-panel" bind:open={eventPanelOpen}>
   <summary>+ Create event</summary>
   <div class="panel-body">
     <form method="POST" action="?/createEvent" use:enhance>
@@ -950,6 +1110,54 @@
   </div>
 </details>
   </div>
+  </div>
+{/if}
+
+<!-- ============ DUPLICATE ACTION BAR ============ -->
+{#if dupMode && data.locationId}
+  <div class="dup-bar">
+    <span class="dup-count">{dupSelected.length} day{dupSelected.length === 1 ? '' : 's'} selected</span>
+    <span class="dup-arrow">→</span>
+    <form
+      method="POST"
+      action="?/copyDays"
+      class="dup-form"
+      use:enhance={() => {
+        return async ({ update }) => {
+          // copyDays redirects to the target week on success; reset local state.
+          dupMode = false;
+          dupSelected = [];
+          await update();
+        };
+      }}
+      onsubmit={(e) => {
+        if (!dupSelected.length) {
+          e.preventDefault();
+          return;
+        }
+        confirmSubmit({
+          message: `Duplicate ${dupSelected.length} day(s) into ${dupTargetLabel}?`,
+          danger: false,
+          title: 'Duplicate days?',
+          confirmLabel: 'Duplicate'
+        })(e);
+      }}
+    >
+      <input type="hidden" name="location_id" value={data.locationId} />
+      <input type="hidden" name="sources" value={dupSelected.join(',')} />
+      <label class="dup-target">
+        <span>Target week</span>
+        <select name="target_week_start" bind:value={dupTarget}>
+          {#each weekOptions as o}
+            <option value={o.value}>{o.label}</option>
+          {/each}
+        </select>
+      </label>
+      <button class="btn sm primary" type="submit" disabled={!dupSelected.length}>
+        Duplicate {dupSelected.length || ''} →
+      </button>
+      <button class="btn sm" type="button" onclick={cancelDup}>Cancel</button>
+    </form>
   </div>
 {/if}
 
@@ -1085,10 +1293,11 @@
                     class="tl-block-x"
                     aria-label="Delete shift"
                     onpointerdown={(e) => e.stopPropagation()}
-                    onclick={(e) => {
+                    onclick={async (e) => {
                       e.stopPropagation();
-                      if (confirm('Delete this shift?')) {
-                        (e.currentTarget.nextElementSibling as HTMLFormElement)?.requestSubmit();
+                      const delForm = e.currentTarget.nextElementSibling as HTMLFormElement | null;
+                      if (await confirmDialog({ message: 'Delete this shift?', danger: true })) {
+                        delForm?.requestSubmit();
                       }
                     }}
                   >×</button>
@@ -1256,6 +1465,180 @@
     flex-wrap: wrap;
   }
 
+  /* ---- Week/Month view toggle ---- */
+  .view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .view-toggle .vt {
+    padding: 0.32rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+  .view-toggle .vt + .vt { border-left: 1px solid var(--color-border); }
+  .view-toggle .vt.active {
+    background: #111827;
+    color: #fff;
+  }
+
+  /* ---- Duplicate toggle button + helper ---- */
+  .dup-toggle.dup-on {
+    background: #6b21a8;
+    color: #fff;
+    border-color: #6b21a8;
+  }
+  .dup-help {
+    margin: 0.6rem 0 0;
+    font-size: 0.78rem;
+    color: #6b21a8;
+    font-weight: 600;
+  }
+
+  /* ---- Selected-day highlight (week grid + month grid) ---- */
+  .day-col.dup-selected,
+  .mg-cell.dup-selected {
+    outline: 2px solid #6b21a8;
+    outline-offset: -2px;
+    box-shadow: 0 0 0 4px rgba(107, 33, 168, 0.12);
+  }
+  .week-grid.dup-mode .day-head { cursor: copy; }
+  .dh-check {
+    float: right;
+    font-size: 0.95rem;
+    color: #6b21a8;
+    line-height: 1;
+  }
+
+  /* ---- Month calendar grid ---- */
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .mg-dow {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    padding-bottom: 0.2rem;
+  }
+  .mg-cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    min-height: 64px;
+    padding: 0.4rem 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: 9px;
+    background: #fff;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mg-cell:hover { border-color: #6b21a8; }
+  .mg-cell.out-month { opacity: 0.4; }
+  .mg-cell.today {
+    border-color: #b8f45a;
+    background: #f6ffe9;
+  }
+  .mg-num { font-size: 0.82rem; font-weight: 700; color: var(--color-text); }
+  .mg-check {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.4rem;
+    font-size: 0.95rem;
+    color: #6b21a8;
+    line-height: 1;
+  }
+  .mg-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #d1d5db;
+  }
+  .mg-count { font-size: 0.68rem; color: var(--color-text-muted); font-weight: 600; }
+  .mg-count.muted-count { color: #9ca3af; font-weight: 500; }
+
+  /* coverage status colours (dot + subtle cell tint) */
+  .mg-cell.status-full .mg-dot { background: #22c55e; }
+  .mg-cell.status-partial .mg-dot { background: #d97706; }
+  .mg-cell.status-missing .mg-dot { background: #dc2626; }
+  .mg-cell.status-none .mg-dot { background: #fca5a5; }
+  .mg-cell.status-closed,
+  .mg-cell.status-holiday {
+    background: repeating-linear-gradient(45deg, #f6f6f6, #f6f6f6 6px, #fbfbfb 6px, #fbfbfb 12px);
+  }
+  .mg-cell.status-closed .mg-dot,
+  .mg-cell.status-holiday .mg-dot { background: #cbd5e1; }
+  .mg-cell.status-holiday { background: #fff5f5; }
+  .mg-cell.status-holiday .mg-dot { background: #fca5a5; }
+
+  .mg-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 0.9rem;
+    font-size: 0.74rem;
+    color: var(--color-text-muted);
+  }
+  .mg-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .mg-legend i.lg { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .mg-legend i.lg.full { background: #22c55e; }
+  .mg-legend i.lg.partial { background: #d97706; }
+  .mg-legend i.lg.missing { background: #dc2626; }
+  .mg-legend i.lg.none { background: #fca5a5; }
+  .mg-legend i.lg.closed { background: #cbd5e1; }
+
+  @media (max-width: 640px) {
+    .mg-cell { min-height: 52px; padding: 0.3rem; }
+    .mg-count { display: none; }
+  }
+
+  /* ---- Duplicate action bar (sticky bottom) ---- */
+  .dup-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 1rem;
+    transform: translateX(-50%);
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.7rem 1rem;
+    background: #fff;
+    border: 1px solid #e9d5ff;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    max-width: calc(100vw - 2rem);
+  }
+  .dup-bar .dup-count { font-weight: 700; font-size: 0.85rem; color: #6b21a8; white-space: nowrap; }
+  .dup-bar .dup-arrow { color: var(--color-text-muted); }
+  .dup-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .dup-target { display: flex; flex-direction: column; gap: 0.15rem; }
+  .dup-target > span {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+  }
+  .dup-target select { width: auto; font-size: 0.82rem; padding: 0.3rem 0.4rem; }
+
   /* ---- Holidays + events side by side ---- */
   .two-col {
     display: grid;
@@ -1339,27 +1722,6 @@
     color: var(--color-text-muted);
     margin-left: auto;
   }
-
-  /* ---- Copy tools toolbar ---- */
-  .copy-tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
-    justify-content: space-between;
-  }
-  .copy-day {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .copy-tools .tool-label {
-    font-weight: 700;
-    font-size: 0.8rem;
-  }
-  .copy-tools .arrow { color: var(--color-text-muted); }
-  .copy-tools select { width: auto; }
 
   /* ---- Week grid ---- */
   .week-grid {

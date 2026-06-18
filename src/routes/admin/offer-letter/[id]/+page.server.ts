@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	if (!person) throw error(404, 'Employee not found');
 
 	const companiesRes = await sb
-		.from('companies')
+		.from('sp_companies')
 		.select('*')
 		.order('name');
 	if (companiesRes.error) console.error('offer-letter: companies query failed', companiesRes.error);

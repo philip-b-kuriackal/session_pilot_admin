@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
   let editing = $state<string | null>(null);
+  let createOpen = $state(false);
 </script>
 
 <div class="page-head">
@@ -11,11 +13,7 @@
   </div>
 </div>
 
-{#if form?.message}
-  <div class="alert error">{form.message}</div>
-{/if}
-
-<details class="create-panel">
+<details class="create-panel" bind:open={createOpen}>
   <summary>+ Add department</summary>
   <div class="panel-body">
     <form method="POST" action="?/create" use:enhance>
@@ -46,7 +44,7 @@
                 <button class="btn sm" onclick={() => (editing = editing === d.id ? null : d.id)}>
                   {editing === d.id ? 'Close' : 'Edit'}
                 </button>
-                <form method="POST" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${d.name}?`)) e.preventDefault(); }}>
+                <form method="POST" action="?/delete" use:enhance onsubmit={confirmSubmit(`Delete ${d.name}?`)}>
                   <input type="hidden" name="id" value={d.id} />
                   <button class="btn sm danger" type="submit">Delete</button>
                 </form>
@@ -69,7 +67,7 @@
             </tr>
           {/if}
         {:else}
-          <tr><td colspan="3" class="empty">No departments yet.</td></tr>
+          <tr><td colspan="3" class="empty">No departments yet.<br /><button type="button" class="btn primary" onclick={() => (createOpen = true)}>+ Add department</button></td></tr>
         {/each}
       </tbody>
     </table>

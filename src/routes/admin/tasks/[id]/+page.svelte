@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
 
   const t = data.template;
@@ -56,9 +57,6 @@
     <p>{t.name}</p>
   </div>
 </div>
-
-{#if form?.message}<div class="alert error">{form.message}</div>{/if}
-{#if form?.success}<div class="alert success">Saved.</div>{/if}
 
 <form method="POST" action="?/update" class="task-form" use:enhance>
   <!-- ① What -->
@@ -244,7 +242,7 @@
             <td><span class="badge {item.mandatory ? 'orange' : 'gray'}">{item.mandatory ? 'yes' : 'no'}</span></td>
             <td><span class="badge {item.requires_evidence ? 'purple' : 'gray'}">{item.requires_evidence ? 'yes' : 'no'}</span></td>
             <td>
-              <form method="POST" action="?/delete_item" use:enhance onsubmit={(e) => { if (!confirm('Delete this item?')) e.preventDefault(); }}>
+              <form method="POST" action="?/delete_item" use:enhance onsubmit={confirmSubmit('Delete this item?')}>
                 <input type="hidden" name="item_id" value={item.id} />
                 <button class="btn sm danger" type="submit">Delete</button>
               </form>
@@ -310,7 +308,7 @@
 <div class="card after-form danger-zone">
   <h2>Delete task</h2>
   <p class="muted">Permanently removes this template, its checklist, and assignees. This cannot be undone.</p>
-  <form method="POST" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm(`Delete “${t.name}”? This cannot be undone.`)) e.preventDefault(); }}>
+  <form method="POST" action="?/delete" use:enhance onsubmit={confirmSubmit(`Delete “${t.name}”? This cannot be undone.`)}>
     <button class="btn danger" type="submit">Delete task</button>
   </form>
 </div>

@@ -71,11 +71,6 @@
   <a class="btn primary" href="/admin/tasks/new">+ New task</a>
 </div>
 
-{#if form?.message}<div class="alert error">{form.message}</div>{/if}
-{#if form?.success && form?.generated !== undefined}
-  <div class="alert success">Generated {form.generated} task instance{form.generated === 1 ? '' : 's'}.</div>
-{/if}
-
 <!-- ===================== Templates list ===================== -->
 <div class="card">
   <div class="table-wrap">
@@ -111,7 +106,7 @@
             </td>
           </tr>
         {:else}
-          <tr><td colspan="6" class="empty">No task templates yet. Create one with “+ New task”.</td></tr>
+          <tr><td colspan="6" class="empty">No task templates yet.<br /><a class="btn primary" href="/admin/tasks/new">+ New task</a></td></tr>
         {/each}
       </tbody>
     </table>
@@ -133,6 +128,10 @@
       </form>
     </div>
   </div>
+
+  {#if form?.success && form?.generated !== undefined}
+    <div class="alert success">Generated {form.generated} task instance{form.generated === 1 ? '' : 's'}.</div>
+  {/if}
 
   <div class="table-wrap">
     <table>

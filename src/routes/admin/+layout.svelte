@@ -1,9 +1,30 @@
 <script lang="ts">
-  import '$lib/admin.css';
+  import '$lib/admin/admin.css';
   import { page } from '$app/stores';
+  import { afterNavigate } from '$app/navigation';
   import { fullName } from '$lib/types';
+  import Toasts from '$lib/admin/components/Toasts.svelte';
+  import ConfirmDialog from '$lib/admin/components/ConfirmDialog.svelte';
+  import { toast, trackSubmit, releaseBusyButtons } from '$lib/admin/ux';
 
   let { data, children } = $props();
+
+  // Surface every form-action result as a toast (errors stay inline too where pages keep them)
+  $effect(() => {
+    const f = $page.form as Record<string, unknown> | null;
+    releaseBusyButtons();
+    if (!f || typeof f !== 'object') return;
+    const message = typeof f.message === 'string' && f.message ? f.message : null;
+    if ($page.status >= 400) {
+      toast.error(message ?? 'Something went wrong.');
+    } else if (message) {
+      toast.success(message);
+    } else if (f.success) {
+      toast.success('Saved.');
+    }
+  });
+
+  afterNavigate(() => releaseBusyButtons());
 
   const nav = [
     { section: 'Operations' },
@@ -23,9 +44,16 @@
     { href: '/admin/locations', label: 'Locations', icon: 'M17.657 16.657 13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0zM15 11a3 3 0 1 1-6 0 3 3 0 0 1 6 0z' },
     { href: '/admin/departments', label: 'Departments', icon: 'M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5m-4 0h4' },
     { section: 'Insight' },
+    { href: '/admin/incident-reports', label: 'Incident Reports', icon: 'M3 21v-4m0 0V5a2 2 0 0 1 2-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 0 0-2 2z' },
     { href: '/admin/reports', label: 'Reports', icon: 'M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z' },
     { href: '/admin/audit', label: 'Audit Log', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
-    { href: '/admin/settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z' }
+    { section: 'Proxie Extras' },
+    { href: '/admin/menu', label: 'Menu Management', icon: 'M3 3v18h18V3H3zm12 14H9v-2h6v2zm0-4H9V11h6v2zm0-4H9V7h6v2z' },
+    { href: '/admin/about', label: 'A Bit About Us', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z' },
+    { href: '/admin/workshops', label: 'In Person Workshops', icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
+    { href: '/admin/questions', label: 'Employee Questions', icon: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z M9 9h6 M9 13h4' },
+    { href: '/admin/whistleblower', label: 'Whistleblower Reports', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 8v4 M12 16h.01' },
+    { href: '/admin/weekly-feedback', label: 'Weekly Feedback', icon: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' }
   ] as const;
 
   function isActive(href: string): boolean {
@@ -47,9 +75,16 @@
     '/admin/responsibilities': 'Responsibilities',
     '/admin/locations': 'Locations',
     '/admin/departments': 'Departments',
+    '/admin/incident-reports': 'Incident reports',
     '/admin/reports': 'Reports',
     '/admin/audit': 'Audit Log',
-    '/admin/settings': 'Settings'
+    '/admin/settings': 'Settings',
+    '/admin/menu': 'Menu Management',
+    '/admin/about': 'A Bit About Us',
+    '/admin/workshops': 'In Person Workshops',
+    '/admin/questions': 'Employee Questions',
+    '/admin/whistleblower': 'Whistleblower Reports',
+    '/admin/weekly-feedback': 'Weekly Feedback'
   };
 
   let pageTitle = $derived.by(() => {
@@ -71,14 +106,23 @@
   />
 </svelte:head>
 
-<div class="admin-shell">
+<div class="admin-shell" onsubmitcapture={trackSubmit}>
+  <Toasts />
+  <ConfirmDialog />
   <aside class="admin-sidebar">
     <div class="brand">
-      <div class="mark">SP</div>
+      <img class="mark" src="/SP.avif" alt="SessionPilot Ops" width="32" height="32" />
       <div class="name">SessionPilot <span>Ops</span></div>
     </div>
     <nav class="admin-nav">
-      {#each nav as item}
+      {#each nav.filter(item => {
+        const isSuperAdmin = data.profile?.role === 'super_admin';
+        if (!isSuperAdmin) {
+          if ('section' in item && item.section === 'Organization') return false;
+          if ('href' in item && (item.href === '/admin/locations' || item.href === '/admin/departments')) return false;
+        }
+        return true;
+      }) as item}
         {#if 'section' in item && item.section}
           <div class="section">{item.section}</div>
         {:else if 'href' in item}

@@ -1,4 +1,5 @@
-/* SessionPilot Ops — Admin portal design system (scoped under .admin-shell)
+/* SessionPilot Ops — Admin + manager portal design system (src/lib/admin/).
+   Scoped under .admin-shell so it never leaks into the employee app.
    Minimal, light, small radii, lime accent, system font. */
 
 .admin-shell {
@@ -69,16 +70,11 @@
 }
 
 .admin-sidebar .brand .mark {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius);
-  background: var(--lime);
-  color: var(--lime-text);
-  font-weight: 700;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .admin-sidebar .brand .name {
@@ -527,3 +523,123 @@
   .admin-sidebar { width: 60px; }
   .admin-sidebar .brand .name, .admin-nav a span.label, .admin-nav .section { display: none; }
 }
+
+/* ---------- Toasts ---------- */
+.admin-shell .toast-stack {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 360px;
+}
+
+.admin-shell .toast {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: var(--text);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.7rem 0.6rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.admin-shell .toast.success .toast-icon { color: var(--lime-h); }
+.admin-shell .toast.error .toast-icon { color: #ff8b8b; }
+.admin-shell .toast.info .toast-icon { color: #9ec5ff; }
+
+.admin-shell .toast-icon { display: flex; flex-shrink: 0; }
+.admin-shell .toast-msg { flex: 1; }
+
+.admin-shell .toast-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  border-radius: var(--radius-xs);
+}
+
+.admin-shell .toast-close:hover { color: #fff; }
+
+/* ---------- Confirm dialog ---------- */
+.admin-shell .confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(17, 19, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.admin-shell .confirm-card {
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  padding: 1.25rem 1.35rem;
+  width: 100%;
+  max-width: 380px;
+}
+
+.admin-shell .confirm-card h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.admin-shell .confirm-card p {
+  font-size: 0.84rem;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.admin-shell .confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+}
+
+.admin-shell .btn.danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-shell .btn.danger-solid:hover { background: var(--danger-h); border-color: var(--danger-h); }
+
+/* ---------- Busy buttons ---------- */
+.admin-shell button.is-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.admin-shell button.is-loading::after {
+  content: '';
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-left: 0.45em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: admin-spin 0.6s linear infinite;
+}
+
+@keyframes admin-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Empty states with CTA ---------- */
+.admin-shell .empty .btn { margin-top: 0.7rem; }
+

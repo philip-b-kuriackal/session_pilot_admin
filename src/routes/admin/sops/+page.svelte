@@ -1,6 +1,8 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
+  let createOpen = $state(false);
 
   function fmtDate(s: string) {
     return new Date(s).toLocaleDateString();
@@ -14,11 +16,7 @@
   </div>
 </div>
 
-{#if form?.message}
-  <div class="alert error">{form.message}</div>
-{/if}
-
-<details class="create-panel">
+<details class="create-panel" bind:open={createOpen}>
   <summary>+ Add SOP</summary>
   <div class="panel-body">
     <form method="POST" action="?/create" use:enhance>
@@ -57,14 +55,14 @@
             <td>{s.sop_steps?.[0]?.count ?? 0}</td>
             <td class="muted">{fmtDate(s.created_at)}</td>
             <td>
-              <form method="POST" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${s.name}?`)) e.preventDefault(); }}>
+              <form method="POST" action="?/delete" use:enhance onsubmit={confirmSubmit(`Delete ${s.name}?`)}>
                 <input type="hidden" name="id" value={s.id} />
                 <button class="btn sm danger" type="submit">Delete</button>
               </form>
             </td>
           </tr>
         {:else}
-          <tr><td colspan="6" class="empty">No SOPs yet.</td></tr>
+          <tr><td colspan="6" class="empty">No SOPs yet.<br /><button type="button" class="btn primary" onclick={() => (createOpen = true)}>+ Add SOP</button></td></tr>
         {/each}
       </tbody>
     </table>

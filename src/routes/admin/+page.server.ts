@@ -11,18 +11,33 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const { data: genCount } = await supabase.rpc('generate_task_instances', { p_date: today });
 	generated = genCount ?? 0;
 
+	const isSuperAdmin = locals.profile?.role === 'super_admin';
+	const myLocId = locals.profile?.location_id;
+
+	let taskQuery = supabase
+		.from('task_instances')
+		.select('id, status, due_at, location_id, template:task_templates(name, priority, location:locations(name))')
+		.eq('due_date', today)
+		.order('due_at');
+
+	let profQuery = supabase
+		.from('profiles')
+		.select('id', { count: 'exact', head: true })
+		.eq('status', 'active');
+
+	let locQuery = supabase.from('locations').select('id, name, brand:brands(name)').order('name');
+
+	if (!isSuperAdmin && myLocId) {
+		taskQuery = taskQuery.eq('location_id', myLocId);
+		profQuery = profQuery.eq('location_id', myLocId);
+		locQuery = locQuery.eq('id', myLocId);
+	}
+
 	const [{ data: instances }, { count: employees }, { data: locations }, { data: recentAudit }] =
 		await Promise.all([
-			supabase
-				.from('task_instances')
-				.select('id, status, due_at, location_id, template:task_templates(name, priority, location:locations(name))')
-				.eq('due_date', today)
-				.order('due_at'),
-			supabase
-				.from('profiles')
-				.select('id', { count: 'exact', head: true })
-				.eq('status', 'active'),
-			supabase.from('locations').select('id, name, brand:brands(name)').order('name'),
+			taskQuery,
+			profQuery,
+			locQuery,
 			supabase
 				.from('audit_logs')
 				.select('*, actor:profiles(first_name, last_name)')

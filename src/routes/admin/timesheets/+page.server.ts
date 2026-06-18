@@ -9,12 +9,20 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const sb = locals.supabase;
 	const mm = resolveMonth(url.searchParams.get('month'));
 
+	let profilesQuery = sb
+		.from('profiles')
+		.select('id, first_name, last_name, position, status, contract_type, hourly_rate, monthly_hours')
+		.order('status', { ascending: true })
+		.order('first_name', { ascending: true });
+
+	const isSuperAdmin = locals.profile?.role === 'super_admin';
+	const myLocId = locals.profile?.location_id;
+	if (!isSuperAdmin && myLocId) {
+		profilesQuery = profilesQuery.eq('location_id', myLocId);
+	}
+
 	const [profilesRes, entriesRes, adjustmentsRes] = await Promise.all([
-		sb
-			.from('profiles')
-			.select('id, first_name, last_name, position, status, contract_type, hourly_rate, monthly_hours')
-			.order('status', { ascending: true })
-			.order('first_name', { ascending: true }),
+		profilesQuery,
 		sb
 			.from('time_entries')
 			.select('id, user_id, location_id, clock_in, clock_out, breaks:time_entry_breaks(id, time_entry_id, break_start, break_end)')

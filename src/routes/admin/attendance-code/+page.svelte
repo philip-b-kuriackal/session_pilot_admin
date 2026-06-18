@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { enhance } from '$app/forms';
+  import { confirmSubmit } from '$lib/admin/ux';
 
   let { data } = $props();
 
@@ -101,7 +102,12 @@
         method="POST"
         action="?/rotateKey"
         use:enhance
-        onsubmit={(e) => { if (!confirm('Generate a new link? The current link will stop working.')) e.preventDefault(); }}
+        onsubmit={confirmSubmit({
+          message: 'Generate a new link? The current link will stop working.',
+          title: 'Rotate attendance link?',
+          confirmLabel: 'Generate new link',
+          danger: true
+        })}
       >
         <input type="hidden" name="location_id" value={data.locationId} />
         <button class="btn danger" type="submit">Rotate</button>

@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { audit } from '$lib/server/admin';
 import { entryNetMinutes, fullName } from '$lib/types';
 import type { TimeEntry, TimeBreak, TimeAdjustment } from '$lib/types';
+import { computePayslip } from '$lib/payslip';
 import { resolveMonth } from '../month';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
@@ -68,28 +69,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	});
 
 	// Totals exclude open (in-progress) entries.
-	const worked = entries.filter((e) => e.clock_out).reduce((sum, e) => sum + entryNetMinutes(e), 0);
 	const adjustment = adjustments.reduce((sum, a) => sum + a.minutes, 0);
-	const total = worked + adjustment;
-	const isFullTime = profile.contract_type === 'full_time';
-	const monthlyHours = profile.monthly_hours ?? null;
-	const target = isFullTime && monthlyHours != null ? monthlyHours * 60 : null;
-	const overtime = isFullTime && monthlyHours != null ? Math.max(0, total - monthlyHours * 60) : null;
 	const rate = profile.hourly_rate ?? null;
-	let estPay: number | null = null;
-	let basePay: number | null = null;
-	let overtimePay: number | null = null;
-	if (rate != null) {
-		if (isFullTime) {
-			if (monthlyHours != null) {
-				basePay = monthlyHours * rate;
-				overtimePay = ((overtime ?? 0) / 60) * rate;
-				estPay = basePay + overtimePay;
-			}
-		} else {
-			estPay = (total / 60) * rate;
-		}
-	}
+	const monthlyHours = profile.monthly_hours ?? null;
+	const summary = computePayslip(profile, entries, adjustment);
 
 	const adjustmentRows = adjustments.map((a) => ({
 		id: a.id,
@@ -115,16 +98,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		entries: rows,
 		hasOpen: rows.some((r) => r.open),
 		adjustments: adjustmentRows,
-		summary: {
-			worked_minutes: worked,
-			adjustment_minutes: adjustment,
-			total_minutes: total,
-			target_minutes: target,
-			overtime_minutes: overtime,
-			est_pay: estPay,
-			base_pay: basePay,
-			overtime_pay: overtimePay
-		}
+		summary
 	};
 };
 

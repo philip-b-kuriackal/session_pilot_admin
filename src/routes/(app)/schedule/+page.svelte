@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BottomNav from '$lib/components/BottomNav.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
   import { enhance } from '$app/forms';
 
   let { data } = $props();

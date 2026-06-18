@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				.select('*')
 				.eq('id', locals.profile?.organization_id ?? '')
 				.maybeSingle(),
-			locals.supabase.from('companies').select('*').order('name')
+			locals.supabase.from('sp_companies').select('*').order('name')
 		]);
 	if (companiesError) console.error('settings: failed to load companies', companiesError);
 	return { locations: locations ?? [], org, companies: companies ?? [] };
@@ -94,7 +94,7 @@ export const actions: Actions = {
 		if (!orgId) return fail(400, { message: 'No organization' });
 
 		const { data, error } = await locals.supabase
-			.from('companies')
+			.from('sp_companies')
 			.insert({ organization_id: orgId, name, ...companyFields(form) })
 			.select('id')
 			.single();
@@ -115,7 +115,7 @@ export const actions: Actions = {
 		if (!name) return fail(400, { message: 'Company name is required' });
 
 		const { error } = await locals.supabase
-			.from('companies')
+			.from('sp_companies')
 			.update({ name, ...companyFields(form) })
 			.eq('id', id);
 		if (error) {
@@ -132,7 +132,7 @@ export const actions: Actions = {
 		const id = form.get('id')?.toString();
 		if (!id) return fail(400, { message: 'Missing company' });
 
-		const { error } = await locals.supabase.from('companies').delete().eq('id', id);
+		const { error } = await locals.supabase.from('sp_companies').delete().eq('id', id);
 		if (error) {
 			console.error('settings: failed to delete company', error);
 			return fail(500, { message: error.message });

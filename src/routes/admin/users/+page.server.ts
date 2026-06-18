@@ -12,7 +12,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.select('*, location:locations(id, name), department:departments(name), job_role:job_roles(name)')
 		.order('first_name');
 
-	if (locationId) query = query.eq('location_id', locationId);
+	const isSuperAdmin = locals.profile?.role === 'super_admin';
+	const myLocId = locals.profile?.location_id;
+
+	if (!isSuperAdmin && myLocId) {
+		query = query.eq('location_id', myLocId);
+	} else if (locationId) {
+		query = query.eq('location_id', locationId);
+	}
+
 	if (role) query = query.eq('role', role);
 	if (q) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`);
 
@@ -60,10 +68,15 @@ export const actions: Actions = {
 		});
 		if (cErr) return fail(500, { message: cErr.message });
 
+		const isSuperAdmin = locals.profile?.role === 'super_admin';
+		const locId = (!isSuperAdmin && locals.profile?.location_id) 
+			? locals.profile.location_id 
+			: (form.get('location_id')?.toString() || null);
+
 		const { error: pErr } = await svc.from('profiles').upsert({
 			id: created.user.id,
 			organization_id: locals.profile?.organization_id,
-			location_id: form.get('location_id')?.toString() || null,
+			location_id: locId,
 			department_id: form.get('department_id')?.toString() || null,
 			job_role_id: form.get('job_role_id')?.toString() || null,
 			role: form.get('role')?.toString() || 'employee',
@@ -101,13 +114,26 @@ export const actions: Actions = {
 		const id = form.get('id')?.toString();
 		if (!id) return fail(400, { message: 'Missing user id' });
 
+		const isSuperAdmin = locals.profile?.role === 'super_admin';
+		const locId = (!isSuperAdmin && locals.profile?.location_id) 
+			? locals.profile.location_id 
+			: (form.get('location_id')?.toString() || null);
+
+		// If not super admin, ensure the user being updated belongs to their location!
+		if (!isSuperAdmin && locals.profile?.location_id) {
+			const { data: checkUser } = await locals.supabase.from('profiles').select('location_id').eq('id', id).single();
+			if (checkUser?.location_id !== locals.profile.location_id) {
+				return fail(403, { message: 'You can only update users in your own location.' });
+			}
+		}
+
 		const { error } = await locals.supabase
 			.from('profiles')
 			.update({
 				first_name: form.get('first_name')?.toString() ?? '',
 				last_name: form.get('last_name')?.toString() ?? '',
 				role: form.get('role')?.toString() || 'employee',
-				location_id: form.get('location_id')?.toString() || null,
+				location_id: locId,
 				department_id: form.get('department_id')?.toString() || null,
 				job_role_id: form.get('job_role_id')?.toString() || null,
 				position: form.get('position')?.toString() || null,

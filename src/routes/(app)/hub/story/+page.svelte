@@ -1,6 +1,7 @@
 <script lang="ts">
-  import BottomNav from '$lib/components/BottomNav.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
   import { page } from '$app/stores';
+  import { originsLessonKey } from '../lessons';
 
   let brandName = $derived($page.data.brandName ?? 'our restaurant');
 
@@ -8,10 +9,13 @@
   const cardImage2 = '/dummy image 3.jpeg';
   const cardImage3 = '/dummy image 4.jpg';
 
+  let completions = $derived<string[]>($page.data.completions ?? []);
+  let originsDone = $derived(completions.includes(originsLessonKey(`The Origins of ${brandName}`)));
+
   let cards = $derived([
-    { title: `The Origins of ${brandName}`, image: cardImage1, link: '/hub/story/origins' },
-    { title: `The Growth and Expansion of ${brandName}`, image: cardImage2, link: '#' },
-    { title: `${brandName} Today and Looking Forward`, image: cardImage3, link: '#' }
+    { title: `The Origins of ${brandName}`, image: cardImage1, link: '/hub/story/origins', comingSoon: false, done: originsDone },
+    { title: `The Growth and Expansion of ${brandName}`, image: cardImage2, link: '', comingSoon: true, done: false },
+    { title: `${brandName} Today and Looking Forward`, image: cardImage3, link: '', comingSoon: true, done: false }
   ]);
 </script>
 
@@ -47,11 +51,23 @@
       <!-- Cards Grid -->
       <div class="cards-grid">
         {#each cards as card}
-          <a href={card.link} class="hub-card" style="background-image: url('{card.image}');">
-            <div class="card-title-pill">
-              {card.title}
+          {#if card.comingSoon}
+            <div class="hub-card coming-soon" style="background-image: url('{card.image}');">
+              <div class="soon-badge">Coming soon</div>
+              <div class="card-title-pill">
+                {card.title}
+              </div>
             </div>
-          </a>
+          {:else}
+            <a href={card.link} class="hub-card" style="background-image: url('{card.image}');">
+              {#if card.done}
+                <div class="done-badge">✓ Completed</div>
+              {/if}
+              <div class="card-title-pill">
+                {card.title}
+              </div>
+            </a>
+          {/if}
         {/each}
       </div>
       
@@ -163,6 +179,36 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     min-width: 0;
     text-decoration: none;
+  }
+
+  .hub-card.coming-soon {
+    filter: grayscale(70%);
+    opacity: 0.75;
+    cursor: default;
+  }
+
+  .soon-badge,
+  .done-badge {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  .soon-badge {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .done-badge {
+    background-color: #e66420;
+    color: white;
   }
 
   .card-title-pill {

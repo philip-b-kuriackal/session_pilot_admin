@@ -42,7 +42,7 @@ export const actions: Actions = {
 			entity_id: data.user.id
 		});
 
-		redirect(303, isManagerRole(profile?.role) ? '/admin' : '/');
+		throw redirect(303, isManagerRole(profile?.role) ? '/admin' : '/');
 	},
 
 	logout: async ({ locals }) => {
@@ -56,6 +56,6 @@ export const actions: Actions = {
 			});
 			await locals.supabase.auth.signOut();
 		}
-		redirect(303, '/login');
+		throw redirect(303, '/login');
 	}
 };

@@ -43,8 +43,6 @@
   </div>
 </div>
 
-{#if form?.message}<div class="alert error">{form.message}</div>{/if}
-
 <div class="filters">
   {#each data.tabs as t}
     <a class="btn {t === data.status ? 'primary' : ''}" href="?status={t}">{tabLabels[t]}</a>

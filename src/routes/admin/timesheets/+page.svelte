@@ -41,7 +41,7 @@
 <div class="card">
   <h2>{data.monthLabel}</h2>
   {#if data.rows.length === 0}
-    <div class="empty">No employees found.</div>
+    <div class="empty">No employees found.<br /><a class="btn primary" href="/admin/users">+ Add user</a></div>
   {:else}
     <div class="table-wrap">
       <table>

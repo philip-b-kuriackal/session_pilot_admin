@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { slide, fly } from 'svelte/transition';
   import { page } from '$app/stores';
+  import { markLessonComplete, QUIZ_KEY } from '../../lessons';
 
   let brandName = $derived($page.data.brandName ?? 'our restaurant');
 
@@ -9,7 +10,9 @@
   let currentStep = $state(-1); // -1: Landing, 0...N-1: Questions, N: Results
   let selectedOption = $state<number | boolean | null>(null);
   let isAnswerConfirmed = $state(false);
+  let lastAnswerCorrect = $state(false);
   let score = $state(0);
+  let answers = $state<(number | boolean | null)[]>([]);
 
   // Mock Questions Data
   let questions = $derived([
@@ -54,32 +57,39 @@
   // Derive total steps (Landing + Questions + Results = 1 + N + 1, but progress bar is just for questions)
   let progressSegments = $derived(questions.length);
 
+  const PASS_THRESHOLD = 2; // pass = at least 2/3 correct
+  let passed = $derived(score >= PASS_THRESHOLD);
+
+  function isCorrect(q: (typeof questions)[number], answer: number | boolean | null): boolean {
+    return q.type === 'multiple-choice' ? answer === q.correctAnswerIndex : answer === q.correctAnswerValue;
+  }
+
   function startQuiz() {
     currentStep = 0;
+    score = 0;
+    answers = [];
+    selectedOption = null;
+    isAnswerConfirmed = false;
   }
 
   function confirmAnswer() {
     if (selectedOption === null) return;
     isAnswerConfirmed = true;
-    
-    // Check if correct (for scoring)
-    const currentQ = questions[currentStep];
-    if (currentQ.type === 'multiple-choice' && selectedOption === currentQ.correctAnswerIndex) {
-      score++;
-    } else if (currentQ.type === 'true-false' && selectedOption === currentQ.correctAnswerValue) {
-      score++;
-    } else {
-      // User said "No wrong answers needed just add the design".
-      // We'll still give them a point so they always pass well, or just let the score be what it is.
-      // We will pretend they got it right for the UI state so it shows the green success.
-      score++; 
-    }
+
+    // Real scoring — only actually-correct answers count
+    lastAnswerCorrect = isCorrect(questions[currentStep], selectedOption);
+    if (lastAnswerCorrect) score++;
+    answers = [...answers, selectedOption];
   }
 
   function nextStep() {
     isAnswerConfirmed = false;
     selectedOption = null;
     currentStep++;
+    if (currentStep === questions.length && score >= PASS_THRESHOLD) {
+      // Quiz passed — persist the completion with the real score
+      void markLessonComplete(QUIZ_KEY, score);
+    }
   }
 
   function finishQuiz() {
@@ -199,32 +209,42 @@
       <div class="results-view" in:fly={{ y: 20, duration: 400 }}>
         <div class="results-header">
           <div class="alright-graphic">
-            <span class="alright-text">alright!</span>
+            <span class="alright-text">{passed ? 'alright!' : 'oh no!'}</span>
           </div>
           <span class="score-label">Score</span>
           <h1 class="score-number">{score}/{questions.length}</h1>
-          <p class="score-msg">You're on fire 🔥!</p>
+          <p class="score-msg">{passed ? "You're on fire 🔥!" : 'Almost there — give it another try! 💪'}</p>
         </div>
 
         <div class="review-list">
-          {#each questions as q}
-            <div class="review-card">
+          {#each questions as q, i}
+            {@const provided = answers[i] ?? null}
+            {@const gotIt = isCorrect(q, provided)}
+            <div class="review-card" class:wrong={!gotIt}>
               <div class="review-header">
-                <div class="check-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <div class="check-icon" class:wrong={!gotIt}>
+                  {#if gotIt}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  {:else}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  {/if}
                 </div>
                 <p>{q.text}</p>
               </div>
               <div class="review-details">
                 <p><strong>Correct answer:</strong> {q.type === 'multiple-choice' ? q.options?.[q.correctAnswerIndex ?? 0] : q.correctAnswerValue}</p>
-                <p><strong>Provided answer:</strong> {q.type === 'multiple-choice' ? q.options?.[q.correctAnswerIndex ?? 0] : q.correctAnswerValue}</p>
+                <p><strong>Provided answer:</strong> {q.type === 'multiple-choice' ? (typeof provided === 'number' ? q.options?.[provided] : '—') : provided ?? '—'}</p>
               </div>
             </div>
           {/each}
         </div>
 
         <div class="bottom-action">
-          <button class="btn-primary" onclick={finishQuiz}>Finish</button>
+          {#if passed}
+            <button class="btn-primary" onclick={finishQuiz}>Finish</button>
+          {:else}
+            <button class="btn-primary" onclick={startQuiz}>Try Again</button>
+          {/if}
         </div>
       </div>
     {/if}
@@ -232,12 +252,12 @@
 
   <!-- FEEDBACK BOTTOM SHEET -->
   {#if isAnswerConfirmed && currentStep < questions.length}
-    <div class="feedback-sheet" in:slide={{ duration: 300 }} out:slide={{ duration: 300 }}>
+    <div class="feedback-sheet" class:incorrect={!lastAnswerCorrect} in:slide={{ duration: 300 }} out:slide={{ duration: 300 }}>
       <div class="feedback-header">
-        <span class="emoji">🎉</span>
+        <span class="emoji">{lastAnswerCorrect ? '🎉' : '🤔'}</span>
         <div class="feedback-titles">
-          <h3>Excellent!</h3>
-          <p>That is correct. Good job!</p>
+          <h3>{lastAnswerCorrect ? 'Excellent!' : 'Not quite!'}</h3>
+          <p>{lastAnswerCorrect ? 'That is correct. Good job!' : 'That was not the right answer.'}</p>
         </div>
       </div>
       <div class="feedback-explanation">
@@ -521,6 +541,10 @@
   }
 
   /* FEEDBACK SHEET */
+  .feedback-sheet.incorrect {
+    background-color: #fecaca; /* Light red */
+  }
+
   .feedback-sheet {
     position: absolute;
     bottom: 0;
@@ -659,10 +683,18 @@
     padding: 1.25rem;
   }
 
+  .review-card.wrong {
+    background-color: #fee2e2; /* Reddish */
+  }
+
   .review-header {
     display: flex;
     gap: 1rem;
     margin-bottom: 1rem;
+  }
+
+  .check-icon.wrong {
+    background-color: #ef4444;
   }
 
   .check-icon {

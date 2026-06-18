@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { audit } from '$lib/server/admin';
+import { audit, serviceClient } from '$lib/server/admin';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const [{ data: locations }, { data: brands }] = await Promise.all([
@@ -22,6 +22,12 @@ export const actions: Actions = {
 		const orgId = locals.profile?.organization_id;
 		let brandId = form.get('brand_id')?.toString() || null;
 		const newBrand = form.get('new_brand')?.toString().trim();
+
+		// Manager details
+		const mFirst = form.get('manager_first_name')?.toString().trim();
+		const mLast = form.get('manager_last_name')?.toString().trim();
+		const mEmail = form.get('manager_email')?.toString().trim();
+		const mPass = form.get('manager_password')?.toString();
 
 		// optionally create a brand on the fly
 		if (newBrand) {
@@ -54,6 +60,32 @@ export const actions: Actions = {
 		if (error) return fail(500, { message: error.message });
 
 		await audit(locals, 'location.created', 'location', loc.id, { name });
+
+		// Optionally create manager
+		if (mEmail && mPass && mFirst) {
+			const svc = serviceClient();
+			if (svc) {
+				const { data: authData, error: authErr } = await svc.auth.admin.createUser({
+					email: mEmail,
+					password: mPass,
+					email_confirm: true,
+					user_metadata: { first_name: mFirst, last_name: mLast }
+				});
+				if (!authErr && authData?.user) {
+					await svc.from('profiles').insert({
+						id: authData.user.id,
+						organization_id: orgId,
+						location_id: loc.id,
+						role: 'restaurant_manager',
+						first_name: mFirst,
+						last_name: mLast ?? '',
+						email: mEmail,
+						status: 'active'
+					});
+				}
+			}
+		}
+
 		// land the admin straight in the new location hub
 		throw redirect(303, `/admin/locations/${loc.id}`);
 	}

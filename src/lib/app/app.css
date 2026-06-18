@@ -1,3 +1,8 @@
+/* SessionPilot Ops — Employee ("Proxie") app styles + global base.
+   Imported once by the root layout, so the reset and :root design tokens below
+   are global; the .app-shell / .app-container rules style the employee surface
+   (phone-first, side nav on laptop). The admin portal layers its own tokens on
+   top via src/lib/admin/admin.css (scoped under .admin-shell). */
 :root {
   /* Colors */
   --color-primary: #f07122;
@@ -32,6 +37,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Employee app shell — phone: single column; laptop: side nav + centered column */
+.app-shell {
+  display: contents;
+}
+
 .app-container {
   max-width: var(--app-max-width);
   margin: 0 auto;
@@ -42,29 +52,27 @@ body {
   box-shadow: 0 0 20px rgba(0,0,0,0.1);
 }
 
-.mobile-only-warning {
-  display: none;
-  height: 100vh;
-  width: 100vw;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  font-weight: 600;
-  text-align: center;
-  padding: 2rem;
-  background-color: #f0f2f5;
-  color: #555;
-}
-
-@media (min-width: 481px) {
-  .app-container {
-    display: none !important;
-  }
-  .mobile-only-warning {
-    display: flex;
-  }
+@media (min-width: 768px) {
   body {
-    background-color: #f0f2f5;
+    background-color: #f6f6f7;
+  }
+
+  .app-shell {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  .app-shell .app-container {
+    flex: 1;
+    max-width: 600px;
+    margin: 0;
+    box-shadow: none;
+    border-right: 1px solid var(--color-border);
+  }
+
+  /* phone tab bar is replaced by the side nav on laptop */
+  .app-shell .bottom-nav {
+    display: none !important;
   }
 }
 

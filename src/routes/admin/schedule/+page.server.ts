@@ -35,6 +35,18 @@ function addDays(dateStr: string, n: number): string {
 	return ymd(dt);
 }
 
+/** Monday-based weekday offset for a YYYY-MM-DD string (0=Mon .. 6=Sun). */
+function weekdayOffset(dateStr: string): number {
+	const [y, m, d] = dateStr.split('-').map(Number);
+	const dow = new Date(y, m - 1, d).getDay(); // 0 Sun .. 6 Sat
+	return dow === 0 ? 6 : dow - 1;
+}
+
+const MONTH_NAMES = [
+	'January', 'February', 'March', 'April', 'May', 'June',
+	'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { data: locations } = await locals.supabase
 		.from('locations')
@@ -50,7 +62,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const location = locs.find((l) => l.id === locationId) ?? null;
 
 	const weekParam = url.searchParams.get('week');
-	const weekStart = mondayOf(parseDate(weekParam));
+	const view = url.searchParams.get('view') === 'month' ? 'month' : 'week';
+	const refDate = parseDate(weekParam);
+	const weekStart = mondayOf(refDate);
 	const weekDates: string[] = [];
 	for (let i = 0; i < 7; i++) {
 		const d = new Date(weekStart);
@@ -66,6 +80,41 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const prevWeek = ymd(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7));
 	const nextWeek = ymd(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7));
 	const thisWeek = ymd(mondayOf(today));
+
+	// ----- Month calendar grid (Mon-start) for the month containing refDate -----
+	const monthFirst = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+	const gridStart = mondayOf(monthFirst);
+	const monthWeeks: { date: string; dayNum: number; inMonth: boolean; isToday: boolean }[][] = [];
+	{
+		const cur = new Date(gridStart);
+		for (let w = 0; w < 6; w++) {
+			const wk: { date: string; dayNum: number; inMonth: boolean; isToday: boolean }[] = [];
+			for (let i = 0; i < 7; i++) {
+				const ds = ymd(cur);
+				wk.push({
+					date: ds,
+					dayNum: cur.getDate(),
+					inMonth: cur.getMonth() === refDate.getMonth(),
+					isToday: ds === todayStr
+				});
+				cur.setDate(cur.getDate() + 1);
+			}
+			monthWeeks.push(wk);
+		}
+	}
+	// Trim trailing weeks that fall entirely outside the focused month.
+	while (monthWeeks.length > 4 && monthWeeks[monthWeeks.length - 1].every((d) => !d.inMonth)) {
+		monthWeeks.pop();
+	}
+	const monthLabel = `${MONTH_NAMES[refDate.getMonth()]} ${refDate.getFullYear()}`;
+	const prevMonth = ymd(new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1));
+	const nextMonth = ymd(new Date(refDate.getFullYear(), refDate.getMonth() + 1, 1));
+	const gridStartStr = monthWeeks[0][0].date;
+	const gridEndStr = monthWeeks[monthWeeks.length - 1][6].date;
+
+	// The query range covers whichever view is active.
+	const rangeStart = view === 'month' ? gridStartStr : weekStartStr;
+	const rangeEnd = view === 'month' ? gridEndStr : weekEndStr;
 
 	let shifts: any[] = [];
 	let staff: any[] = [];
@@ -85,8 +134,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 				// shifts has two FKs to profiles (user_id, created_by) — must disambiguate
 				.select('*, user:profiles!shifts_user_id_fkey(id, first_name, last_name, job_role:job_roles(id, name))')
 				.eq('location_id', locationId)
-				.gte('shift_date', weekStartStr)
-				.lte('shift_date', weekEndStr)
+				.gte('shift_date', rangeStart)
+				.lte('shift_date', rangeEnd)
 				.order('start_time'),
 			locals.supabase
 				.from('profiles')
@@ -97,8 +146,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			locals.supabase
 				.from('holidays')
 				.select('*, location:locations(name)')
-				.gte('date', weekStartStr)
-				.lte('date', weekEndStr)
+				.gte('date', rangeStart)
+				.lte('date', rangeEnd)
 				.or(`location_id.is.null,location_id.eq.${locationId}`),
 			locals.supabase
 				.from('job_roles')
@@ -139,6 +188,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		locations: locs,
 		locationId,
 		location,
+		view,
 		weekDates,
 		weekStart: weekStartStr,
 		weekEnd: weekEndStr,
@@ -146,6 +196,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		prevWeek,
 		nextWeek,
 		thisWeek,
+		monthWeeks,
+		monthLabel,
+		prevMonth,
+		nextMonth,
 		shifts,
 		staff,
 		holidays,
@@ -362,6 +416,70 @@ export const actions: Actions = {
 		});
 
 		throw redirect(303, `/admin/schedule?location=${location_id}&week=${nextStart}`);
+	},
+
+	// Duplicate a hand-picked set of days into a target week. Each source day maps
+	// to the same weekday (Mon→Mon, etc.) of the chosen week. Existing matching
+	// shifts on the target days are skipped so re-running is safe.
+	copyDays: async ({ request, locals }) => {
+		const form = await request.formData();
+		const location_id = form.get('location_id')?.toString();
+		const targetWeek = form.get('target_week_start')?.toString();
+		const sources = (form.get('sources')?.toString() ?? '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
+		if (!location_id || !targetWeek || !sources.length) {
+			return fail(400, { message: 'Select at least one day and a target week.' });
+		}
+
+		// source date → target date (same weekday of the target week)
+		const dstFor = new Map(sources.map((src) => [src, addDays(targetWeek, weekdayOffset(src))]));
+		const targets = Array.from(new Set([...dstFor.values()]));
+
+		const [{ data: srcShifts }, { data: tgtShifts }] = await Promise.all([
+			locals.supabase
+				.from('shifts')
+				.select('user_id, shift_date, start_time, end_time, role_label, notes')
+				.eq('location_id', location_id)
+				.in('shift_date', sources),
+			locals.supabase
+				.from('shifts')
+				.select('user_id, shift_date, start_time')
+				.eq('location_id', location_id)
+				.in('shift_date', targets)
+		]);
+
+		const existing = new Set(
+			(tgtShifts ?? []).map((s: any) => `${s.user_id}|${s.shift_date}|${s.start_time}`)
+		);
+		const rows = (srcShifts ?? [])
+			.map((s: any) => ({ ...s, shift_date: dstFor.get(s.shift_date) }))
+			.filter((s: any) => s.shift_date && !existing.has(`${s.user_id}|${s.shift_date}|${s.start_time}`))
+			.map((s: any) => ({
+				location_id,
+				user_id: s.user_id,
+				shift_date: s.shift_date,
+				start_time: s.start_time,
+				end_time: s.end_time,
+				role_label: s.role_label,
+				notes: s.notes,
+				created_by: locals.user?.id ?? null
+			}));
+
+		if (rows.length) {
+			const { error } = await locals.supabase.from('shifts').insert(rows);
+			if (error) return fail(500, { message: error.message });
+		}
+
+		await audit(locals, 'shift.days_copied', 'shift', undefined, {
+			location_id,
+			sources,
+			target_week: targetWeek,
+			count: rows.length
+		});
+
+		throw redirect(303, `/admin/schedule?location=${location_id}&week=${targetWeek}&view=week`);
 	},
 
 	addHoliday: async ({ request, locals }) => {

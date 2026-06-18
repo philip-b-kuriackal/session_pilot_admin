@@ -1,8 +1,25 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { fullName } from '$lib/types';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
   let editing = $state<string | null>(null);
+  let createPanel = $state<HTMLDetailsElement | null>(null);
+
+  const hasFilters = $derived(
+    !!(data.filters.q || data.filters.locationId || data.filters.role)
+  );
+
+  /** Scroll the expanded inline-editor row into view when it opens. */
+  function scrollIntoViewOnMount(node: HTMLElement) {
+    node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function openCreatePanel() {
+    if (!createPanel) return;
+    createPanel.open = true;
+    createPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
 
   const roles = [
     ['employee', 'Employee'],
@@ -43,12 +60,11 @@
   </div>
 </div>
 
-{#if form?.message}<div class="alert error">{form.message}</div>{/if}
-{#if form?.created}<div class="alert success">User created. They can sign in with the email and password you set.</div>{/if}
-
-<details class="create-panel">
+<details class="create-panel" bind:this={createPanel}>
   <summary>+ Add user</summary>
   <div class="panel-body">
+    {#if form?.message}<div class="alert error">{form.message}</div>{/if}
+    {#if form?.created}<div class="alert success">User created. They can sign in with the email and password you set.</div>{/if}
     <form method="POST" action="?/create" use:enhance>
       <div class="form-grid">
         <label class="field"><span>First name *</span><input type="text" name="first_name" required /></label>
@@ -172,7 +188,7 @@
               <div class="row-flex">
                 <button class="btn sm" onclick={() => (editing = editing === u.id ? null : u.id)}>{editing === u.id ? 'Close' : 'Edit'}</button>
                 <a class="btn sm" href={`/admin/offer-letter/${u.id}`} target="_blank">📄 Offer letter</a>
-                <form method="POST" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${fullName(u)}? This removes their account.`)) e.preventDefault(); }}>
+                <form method="POST" action="?/delete" use:enhance onsubmit={confirmSubmit(`Delete ${fullName(u)}? This removes their account.`)}>
                   <input type="hidden" name="id" value={u.id} />
                   <button class="btn sm danger" type="submit">Delete</button>
                 </form>
@@ -180,7 +196,7 @@
             </td>
           </tr>
           {#if editing === u.id}
-            <tr>
+            <tr use:scrollIntoViewOnMount>
               <td colspan="8" style="background:#fafafa;">
                 <form method="POST" action="?/update" use:enhance={() => async ({ update }) => { editing = null; await update(); }}>
                   <input type="hidden" name="id" value={u.id} />
@@ -265,7 +281,16 @@
             </tr>
           {/if}
         {:else}
-          <tr><td colspan="8" class="empty">No users match.</td></tr>
+          <tr>
+            <td colspan="8" class="empty">
+              {#if hasFilters}
+                No users match your filters.
+              {:else}
+                No users yet.
+                <button class="btn sm primary" type="button" onclick={openCreatePanel}>+ Add your first user</button>
+              {/if}
+            </td>
+          </tr>
         {/each}
       </tbody>
     </table>

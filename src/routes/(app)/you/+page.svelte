@@ -1,11 +1,18 @@
 <script lang="ts">
-  import BottomNav from '$lib/components/BottomNav.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
   import { page } from '$app/stores';
+  import { enhance } from '$app/forms';
 
   const dummyImage = '/dmmy%20image.jpg';
   const dummyVideo = '/dummy%20video.mp4';
 
   let profile = $derived($page.data.profile);
+  let { form } = $props();
+
+  let editingBio = $state(false);
+  let savingBio = $state(false);
+  let avatarForm = $state<HTMLFormElement | null>(null);
+  let uploadingAvatar = $state(false);
 </script>
 
 <div class="page-container">
@@ -19,14 +26,36 @@
       <div class="hero-overlay"></div>
       
       <div class="hero-content">
-        <!-- Avatar -->
+        <!-- Avatar (tap the badge to change photo) -->
         <div class="avatar-container">
-          <img src={profile?.avatar_url ?? dummyImage} alt="Avatar" class="avatar-img" />
-          <div class="avatar-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-            </svg>
-          </div>
+          <img src={profile?.avatar_url ?? dummyImage} alt="Avatar" class="avatar-img" class:uploading={uploadingAvatar} />
+          <form
+            method="POST"
+            action="?/uploadAvatar"
+            enctype="multipart/form-data"
+            bind:this={avatarForm}
+            use:enhance={() => {
+              uploadingAvatar = true;
+              return async ({ update }) => {
+                uploadingAvatar = false;
+                await update();
+              };
+            }}
+          >
+            <label class="avatar-badge" aria-label="Change profile photo">
+              <input
+                type="file"
+                name="avatar"
+                accept="image/*"
+                class="file-input"
+                onchange={() => avatarForm?.requestSubmit()}
+              />
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </label>
+          </form>
         </div>
         
         <!-- Welcome Text -->
@@ -50,14 +79,40 @@
       <div class="bio-card">
         <div class="bio-header">
           <span class="bio-title">Your bio</span>
-          <button class="edit-btn">
+          <button class="edit-btn" aria-label="Edit bio" onclick={() => (editingBio = !editingBio)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
         </div>
-        <p class="bio-text">{profile?.bio ?? 'Tap edit to add your bio ✍️'}</p>
+        {#if editingBio}
+          <form
+            method="POST"
+            action="?/updateBio"
+            class="bio-form"
+            use:enhance={() => {
+              savingBio = true;
+              return async ({ update, result }) => {
+                savingBio = false;
+                if (result.type === 'success') editingBio = false;
+                await update();
+              };
+            }}
+          >
+            <!-- svelte-ignore a11y_autofocus -->
+            <textarea name="bio" rows="3" maxlength="280" placeholder="Say something about yourself…" autofocus>{profile?.bio ?? ''}</textarea>
+            {#if form?.message}
+              <p class="bio-error">{form.message}</p>
+            {/if}
+            <div class="bio-actions">
+              <button type="button" class="bio-cancel" onclick={() => (editingBio = false)}>Cancel</button>
+              <button type="submit" class="bio-save" disabled={savingBio}>{savingBio ? 'Saving…' : 'Save'}</button>
+            </div>
+          </form>
+        {:else}
+          <p class="bio-text">{profile?.bio || 'Tap edit to add your bio ✍️'}</p>
+        {/if}
       </div>
 
       <!-- Earned Badges -->
@@ -88,7 +143,7 @@
 
       <!-- Menu Items -->
       <div class="menu-list">
-        <div class="menu-item">
+        <a href="/you/profile" class="menu-item" style="text-decoration: none;">
           <div class="menu-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -104,7 +159,48 @@
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </div>
-        </div>
+        </a>
+
+        <hr class="menu-divider" />
+
+        <a href="/you/hours" class="menu-item" style="text-decoration: none;">
+          <div class="menu-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div class="menu-content">
+            <div class="menu-title">Your hours</div>
+            <div class="menu-subtitle">Past shifts and worked time</div>
+          </div>
+          <div class="menu-chevron">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </a>
+
+        <hr class="menu-divider" />
+
+        <a href="/you/payslips" class="menu-item" style="text-decoration: none;">
+          <div class="menu-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
+              <circle cx="12" cy="14.5" r="1.5"></circle>
+            </svg>
+          </div>
+          <div class="menu-content">
+            <div class="menu-title">Payslips</div>
+            <div class="menu-subtitle">Monthly pay history</div>
+          </div>
+          <div class="menu-chevron">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </a>
 
         <hr class="menu-divider" />
 
@@ -330,6 +426,81 @@
     font-size: 1.25rem;
     font-weight: 700;
     margin: 0;
+  }
+
+  /* Bio inline editor */
+  .bio-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bio-form textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    color: white;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    resize: none;
+    outline: none;
+  }
+
+  .bio-form textarea:focus {
+    border-color: #ec4899;
+  }
+
+  .bio-error {
+    color: #fca5a5;
+    font-size: 0.8rem;
+    margin: 0;
+  }
+
+  .bio-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .bio-cancel,
+  .bio-save {
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+
+  .bio-cancel {
+    background: rgba(255, 255, 255, 0.1);
+    color: #d1d5db;
+  }
+
+  .bio-save {
+    background: #ec4899;
+    color: white;
+  }
+
+  .bio-save:disabled {
+    opacity: 0.6;
+  }
+
+  /* Avatar upload */
+  .file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  .avatar-img.uploading {
+    opacity: 0.5;
   }
 
   /* Earned Badges */

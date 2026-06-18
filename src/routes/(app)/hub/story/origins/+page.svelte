@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BottomNav from '$lib/components/BottomNav.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
 
   const heroImage = '/dummy image 2.jpg';
   const bottomImage = '/dummy image 3.jpeg';

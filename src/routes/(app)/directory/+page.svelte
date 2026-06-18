@@ -8,6 +8,10 @@
 
   let myLocationOnly = $state(false);
   let myLocationId = $derived($page.data.profile?.location_id ?? null);
+  let searchOpen = $state(false);
+  let searchQuery = $state('');
+  let locationFilter = $state('');
+  let roleFilter = $state('');
 
   type Employee = {
     id: string;
@@ -33,6 +37,29 @@
         bgColor: INITIALS_COLORS[i % INITIALS_COLORS.length]
       }))
       .filter((e: Employee) => !myLocationOnly || !myLocationId || e.location_id === myLocationId)
+      .filter((e: Employee) => !locationFilter || e.location === locationFilter)
+      .filter((e: Employee) => !roleFilter || e.role === roleFilter)
+      .filter((e: Employee) => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return true;
+        return (
+          e.name.toLowerCase().includes(q) ||
+          e.role.toLowerCase().includes(q) ||
+          e.location.toLowerCase().includes(q)
+        );
+      })
+  );
+
+  // dropdown options from the full (unfiltered) list
+  let allLocations = $derived(
+    [...new Set((data.people ?? []).map((p: any) => p.location?.name).filter(Boolean))].sort() as string[]
+  );
+  let allRoles = $derived(
+    [...new Set(
+      (data.people ?? [])
+        .map((p: any) => p.position || p.job_role?.name || (p.role ?? '').replaceAll('_', ' '))
+        .filter(Boolean)
+    )].sort() as string[]
   );
 
   let directoryData = $derived.by(() => {
@@ -58,7 +85,14 @@
       </svg>
     </button>
     <h1 class="title">People Directory ({employees.length})</h1>
-    <button class="icon-btn">
+    <button
+      class="icon-btn"
+      aria-label="Search people"
+      onclick={() => {
+        searchOpen = !searchOpen;
+        if (!searchOpen) searchQuery = '';
+      }}
+    >
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e66420" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -66,11 +100,39 @@
     </button>
   </header>
 
+  {#if searchOpen}
+    <div class="search-bar">
+      <!-- svelte-ignore a11y_autofocus -->
+      <input
+        type="search"
+        placeholder="Search by name, role or location…"
+        bind:value={searchQuery}
+        autofocus
+      />
+    </div>
+  {/if}
+
   <!-- Filter Pills -->
   <div class="filter-section hide-scrollbar">
     <button class="filter-pill" class:active={myLocationOnly} onclick={() => (myLocationOnly = !myLocationOnly)}>✨ My location</button>
-    <button class="filter-pill dropdown">Locations <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
-    <button class="filter-pill dropdown">Roles <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+    <label class="filter-pill dropdown" class:active={!!locationFilter}>
+      <select bind:value={locationFilter} aria-label="Filter by location">
+        <option value="">Locations</option>
+        {#each allLocations as loc}
+          <option value={loc}>{loc}</option>
+        {/each}
+      </select>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </label>
+    <label class="filter-pill dropdown" class:active={!!roleFilter}>
+      <select bind:value={roleFilter} aria-label="Filter by role">
+        <option value="">Roles</option>
+        {#each allRoles as role}
+          <option value={role}>{role}</option>
+        {/each}
+      </select>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </label>
   </div>
 
   <!-- Directory List -->
@@ -186,10 +248,52 @@
 
   .filter-pill.active {
     background: #fffdf5; /* Subtle yellow */
+    border-color: #e66420;
+    color: #e66420;
   }
 
   .filter-pill.dropdown svg {
     margin-left: 2px;
+  }
+
+  .filter-pill.dropdown {
+    position: relative;
+    padding-right: 0.7rem;
+  }
+
+  .filter-pill.dropdown select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    outline: none;
+    max-width: 130px;
+    text-overflow: ellipsis;
+  }
+
+  /* Search bar */
+  .search-bar {
+    padding: 0.75rem 1.25rem 0;
+    flex-shrink: 0;
+  }
+
+  .search-bar input {
+    width: 100%;
+    border: 1px solid #eee;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .search-bar input:focus {
+    border-color: #e66420;
+    background: white;
   }
 
   /* Directory List */

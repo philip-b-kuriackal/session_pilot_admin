@@ -84,7 +84,7 @@
 <div class="card">
   <h2>Today's tasks</h2>
   {#if data.instances.length === 0}
-    <div class="empty">No tasks due today. Create task templates under <a href="/admin/tasks">Tasks</a>.</div>
+    <div class="empty">No tasks due today.<br /><a class="btn primary" href="/admin/tasks/new">+ New task</a></div>
   {:else}
     <div class="table-wrap">
       <table>

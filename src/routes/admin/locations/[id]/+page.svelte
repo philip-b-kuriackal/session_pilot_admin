@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { fullName } from '$lib/types';
+  import { confirmSubmit } from '$lib/admin/ux';
   let { data, form } = $props();
-
-  // top-level navigation
-  let tab = $state<'overview' | 'hours' | 'team' | 'setup'>('overview');
 
   // overview
   let editingLocation = $state(false);
@@ -46,6 +46,8 @@
   );
   const openDayCount = $derived(days.filter((d) => hours[d.key]).length);
 
+  const managers = $derived(data.staff.filter((s: any) => s.role === 'restaurant_manager'));
+
   const headLine = $derived(
     [
       addrLine || null,
@@ -63,6 +65,18 @@
     { key: 'team', label: 'Team' },
     { key: 'setup', label: 'Roles & setup' }
   ] as const;
+  type TabKey = (typeof tabs)[number]['key'];
+
+  // top-level navigation — the active tab lives in the URL so it survives
+  // form-action reloads (all forms use:enhance and post to the current URL).
+  const tab = $derived.by<TabKey>(() => {
+    const t = $page.url.searchParams.get('tab');
+    return tabs.some((x) => x.key === t) ? (t as TabKey) : 'overview';
+  });
+
+  function setTab(key: TabKey) {
+    goto(`?tab=${key}`, { replaceState: true, noScroll: true, keepFocus: true });
+  }
 </script>
 
 <!-- ===================== Compact header ===================== -->
@@ -87,7 +101,7 @@
       class="tab"
       class:active={tab === t.key}
       aria-selected={tab === t.key}
-      onclick={() => (tab = t.key)}
+      onclick={() => setTab(t.key)}
     >
       {t.label}
     </button>
@@ -144,6 +158,30 @@
   </div>
 
   <div class="card">
+    <h2>Location Management</h2>
+    {#if managers.length > 0}
+      <div class="people">
+        {#each managers as m}
+          <div class="person" style="border:none; padding:0.25rem 0;">
+            <div class="avatar-sm">
+              {#if m.avatar_url}<img src={m.avatar_url} alt="" />{:else}{(m.first_name?.[0] ?? '') + (m.last_name?.[0] ?? '')}{/if}
+            </div>
+            <div style="min-width:0;">
+              <div class="font-semibold">{fullName(m)}</div>
+              <div class="muted">{[m.email, m.phone].filter(Boolean).join(' · ') || 'No contact info'}</div>
+            </div>
+            <div style="margin-left:auto;">
+              <span class="badge blue">Manager</span>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p class="muted" style="margin:0;">No location managers assigned yet. You can assign one from the Users tab.</p>
+    {/if}
+  </div>
+
+  <div class="card">
     <h2>Customer chat</h2>
     <div class="row-flex" style="justify-content:space-between;gap:1rem;align-items:flex-start;">
       <p class="muted" style="max-width:560px;">
@@ -167,9 +205,7 @@
         method="POST"
         action="?/deleteLocation"
         use:enhance
-        onsubmit={(e) => {
-          if (!confirm(`Delete ${loc.name}? This cannot be undone.`)) e.preventDefault();
-        }}
+        onsubmit={confirmSubmit(`Delete ${loc.name}? This cannot be undone.`)}
       >
         <button class="btn danger" type="submit">Delete location</button>
       </form>
@@ -295,9 +331,7 @@
                 method="POST"
                 action="?/deleteDepartment"
                 use:enhance
-                onsubmit={(e) => {
-                  if (!confirm(`Delete department “${d.name}”?`)) e.preventDefault();
-                }}
+                onsubmit={confirmSubmit(`Delete department “${d.name}”?`)}
                 style="margin-top:0.5rem;"
               >
                 <input type="hidden" name="id" value={d.id} />
@@ -400,9 +434,7 @@
                 method="POST"
                 action="?/deleteResponsibility"
                 use:enhance
-                onsubmit={(e) => {
-                  if (!confirm(`Delete responsibility “${r.name}”?`)) e.preventDefault();
-                }}
+                onsubmit={confirmSubmit(`Delete responsibility “${r.name}”?`)}
                 style="margin-top:0.5rem;"
               >
                 <input type="hidden" name="id" value={r.id} />
@@ -527,9 +559,7 @@
                 method="POST"
                 action="?/deleteJobRole"
                 use:enhance
-                onsubmit={(e) => {
-                  if (!confirm(`Delete job role “${j.name}”?`)) e.preventDefault();
-                }}
+                onsubmit={confirmSubmit(`Delete job role “${j.name}”?`)}
                 style="margin-top:0.5rem;"
               >
                 <input type="hidden" name="id" value={j.id} />

@@ -1,33 +1,51 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import BottomNav from '$lib/components/BottomNav.svelte';
-  import VideoOverlay from '$lib/components/VideoOverlay.svelte';
+  import BottomNav from '$lib/app/components/BottomNav.svelte';
+  import VideoOverlay from '$lib/app/components/VideoOverlay.svelte';
   import { page } from '$app/stores';
+  import { aboutUsLessonKey, markLessonComplete } from '../../lessons';
 
   let brandName = $derived($page.data.brandName ?? 'our restaurant');
 
   const heroImage = '/dummy image 4.jpg';
-  
+
   const img1 = '/dummy image 2.jpg';
   const img2 = '/dummy image 3.jpeg';
   const img3 = '/dummy image 4.jpg';
-  const imgVideo = '/dummy image 5.jpg'; 
+  const imgVideo = '/dummy image 5.jpg';
 
   let isVideoOpen = $state(false);
 
-  let lessons = $derived([
-    { title: `The Origins of ${brandName}`, type: 'Article', time: '1 min', icon: '📄', image: img1, link: '/hub/story/origins' },
-    { title: `The Growth and Expansion of ${brandName}`, type: 'Article', time: '1 min', icon: '📄', image: img2, link: '/hub/story/origins' },
-    { title: `${brandName} Today and Looking Forward`, type: 'Article', time: '1 min', icon: '📄', image: img3, link: '/hub/story/origins' },
-    { title: 'Surprise Guest 🔥', type: 'Video', time: '3 min', icon: '▶️', image: imgVideo, isVideo: true }
-  ]);
+  let lessons = $derived(
+    [
+      { title: `The Origins of ${brandName}`, type: 'Article', time: '1 min', icon: '📄', image: img1, link: '/hub/story/origins', isVideo: false },
+      { title: `The Growth and Expansion of ${brandName}`, type: 'Article', time: '1 min', icon: '📄', image: img2, link: '/hub/story/origins', isVideo: false },
+      { title: `${brandName} Today and Looking Forward`, type: 'Article', time: '1 min', icon: '📄', image: img3, link: '/hub/story/origins', isVideo: false },
+      { title: 'Surprise Guest 🔥', type: 'Video', time: '3 min', icon: '▶️', image: imgVideo, link: '', isVideo: true }
+    ].map((l) => ({ ...l, key: aboutUsLessonKey(l.title) }))
+  );
+
+  // Completed state = persisted completions + optimistic marks from this visit
+  let optimistic = $state<string[]>([]);
+  let completedKeys = $derived(
+    new Set<string>([...(($page.data.completions as string[] | undefined) ?? []), ...optimistic])
+  );
+
+  function complete(key: string) {
+    if (completedKeys.has(key)) return;
+    optimistic = [...optimistic, key];
+    void markLessonComplete(key);
+  }
 </script>
 
 {#if isVideoOpen}
-  <VideoOverlay 
-    videoSrc="/dummy video.mp4" 
-    title="Surprise Guest 🔥" 
-    onClose={() => isVideoOpen = false} 
+  <VideoOverlay
+    videoSrc="/dummy video.mp4"
+    title="Surprise Guest 🔥"
+    onClose={() => {
+      complete(aboutUsLessonKey('Surprise Guest 🔥'));
+      isVideoOpen = false;
+    }}
   />
 {/if}
 
@@ -59,11 +77,14 @@
         <div class="timeline-line"></div>
 
         {#each lessons as lesson}
+          {@const isDone = completedKeys.has(lesson.key)}
           <div class="timeline-item">
             <!-- Node checkmark -->
             <div class="node-wrapper">
-              <div class="check-circle completed">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <div class="check-circle {isDone ? 'completed' : 'pending'}">
+                {#if isDone}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                {/if}
               </div>
             </div>
 
@@ -88,7 +109,7 @@
                 </div>
               </div>
             {:else}
-              <a href={lesson.link} class="lesson-card">
+              <a href={lesson.link} class="lesson-card" onclick={() => complete(lesson.key)}>
                 <div class="card-info">
                   <h3 class="lesson-title">{lesson.title}</h3>
                   <div class="lesson-meta">
@@ -249,6 +270,11 @@
 
   .check-circle.completed {
     background-color: #e66420;
+  }
+
+  .check-circle.pending {
+    background-color: #fff;
+    border: 2px solid #e2e8f0;
   }
   
   .check-circle.completed svg {

@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		locals.supabase.from('brands').select('id, name').order('name'),
 		locals.supabase
 			.from('profiles')
-			.select('id, first_name, last_name, avatar_url, position, status, contract_type, hourly_rate, department:departments(name), job_role:job_roles(name)')
+			.select('id, first_name, last_name, email, phone, role, avatar_url, position, status, contract_type, hourly_rate, department:departments(name), job_role:job_roles(name)')
 			.eq('location_id', id)
 			.order('first_name'),
 		locals.supabase.from('departments').select('*, staff:profiles(count)').order('name'),
