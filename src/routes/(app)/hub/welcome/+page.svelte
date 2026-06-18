@@ -90,14 +90,13 @@
           <div class="node-label">A bit about<br/>us...</div>
         </a>
 
-        <!-- Node 2 — Our Menu (content not available yet) -->
-        <div class="timeline-node coming-soon" style="top: 190px; left: 190px;">
-          <div class="node-circle pending">
-            <img src={img2} alt="Our Menu" style="opacity: 0.5; filter: grayscale(100%);" />
+        <!-- Node 2 — Our Menu (Active) -->
+        <a href="/menu" class="timeline-node" style="top: 190px; left: 190px; text-decoration: none;">
+          <div class="node-circle active">
+            <img src={img2} alt="Our Menu" />
           </div>
           <div class="node-label">Our Menu!</div>
-          <div class="soon-pill">coming soon</div>
-        </div>
+        </a>
 
         <!-- Node 3 — Workshop (content not available yet) -->
         <div class="timeline-node coming-soon" style="top: 340px; left: 120px;">
