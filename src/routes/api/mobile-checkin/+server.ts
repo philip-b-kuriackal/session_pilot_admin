@@ -31,40 +31,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Missing userId' }, { status: 400, headers: corsHeaders });
 	}
 
-	// 1. Bulletproof Profile Provisioning
-	// The mobile app sends a mock UUID which violates Supabase's auth.users foreign key.
-	// We will either map to an existing profile, or create a real Auth user to satisfy the database.
-	let realUserId = '';
-	const { data: existingProfiles } = await svc.from('profiles').select('id').limit(1);
+	let realUserId = userId;
+	// Check if the user profile actually exists in the database
+	const { data: existingProfile } = await svc.from('profiles').select('id').eq('id', realUserId).single();
 
-	if (existingProfiles && existingProfiles.length > 0) {
-		// Use the first available real profile
-		realUserId = existingProfiles[0].id;
-		if (userName) {
-			await svc.from('profiles').update({ first_name: userName }).eq('id', realUserId);
-		}
-	} else {
-		// No profiles exist! Create a valid Auth User first.
-		const { data: authData, error: authErr } = await svc.auth.admin.createUser({
-			email: `mobile_${Date.now()}@example.com`,
-			password: 'password123',
-			email_confirm: true
-		});
-		if (authErr) return json({ error: authErr.message }, { status: 500, headers: corsHeaders });
-		
-		realUserId = authData.user.id;
-		
-		const { error: profileError } = await svc.from('profiles').insert({
-			id: realUserId,
-			first_name: userName || 'Mobile',
-			last_name: 'User',
-			role: 'employee',
-			status: 'active',
-			contract_type: 'full_time'
-		});
-		if (profileError) {
-			return json({ error: 'Failed to provision profile', details: profileError }, { status: 500, headers: corsHeaders });
-		}
+	if (!existingProfile) {
+		return json({ error: 'User profile not found in database' }, { status: 404, headers: corsHeaders });
 	}
 
 	const now = new Date().toISOString();
