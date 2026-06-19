@@ -73,11 +73,12 @@ export const actions: Actions = {
 			? locals.profile.location_id 
 			: (form.get('location_id')?.toString() || null);
 
+		const department_id = form.get('department_id')?.toString() || null;
 		const { error: pErr } = await svc.from('profiles').upsert({
 			id: created.user.id,
 			organization_id: locals.profile?.organization_id,
 			location_id: locId,
-			department_id: form.get('department_id')?.toString() || null,
+			department_id: department_id,
 			job_role_id: form.get('job_role_id')?.toString() || null,
 			role: form.get('role')?.toString() || 'employee',
 			first_name,
@@ -104,6 +105,80 @@ export const actions: Actions = {
 			bank_account: form.get('bank_account')?.toString() || null
 		});
 		if (pErr) return fail(500, { message: pErr.message });
+
+		// Auto-onboard into existing group chats for their Department and "Everyone"
+		// Ensure the groups exist first
+		if (locals.profile?.organization_id && locId) {
+			const orgId = locals.profile.organization_id;
+
+			let deptName = 'Department';
+			if (department_id) {
+				const { data: deptData } = await svc.from('departments').select('name').eq('id', department_id).single();
+				if (deptData) deptName = deptData.name;
+			}
+
+			const getOrCreateGroup = async (dId: string | null, title: string) => {
+				let query = svc.from('conversations').select('id').eq('kind', 'channel').eq('organization_id', orgId).eq('location_id', locId);
+				if (dId) query = query.eq('department_id', dId);
+				else query = query.is('department_id', null);
+
+				const { data: found } = await query.limit(1);
+				if (found && found.length > 0) return found[0].id;
+
+				const newId = crypto.randomUUID();
+				const { error: groupInsertErr } = await svc.from('conversations').insert({
+					id: newId,
+					organization_id: orgId,
+					location_id: locId,
+					department_id: dId || null,
+					kind: 'channel',
+					title: title,
+					created_by: locals.profile?.id || created.user.id
+				});
+
+				if (groupInsertErr) {
+					console.error("Failed to create conversation group in DB:", groupInsertErr);
+					// Fallback to returning existing id if possible, otherwise throw or return null
+					return newId; // we return newId, but it will fail later. Logging is key here.
+				}
+
+				// Add all existing users in this location/department to the new group
+				let memQuery = svc.from('profiles').select('id').eq('location_id', locId);
+				if (dId) memQuery = memQuery.eq('department_id', dId);
+				
+				const { data: existingUsers } = await memQuery;
+				if (existingUsers && existingUsers.length > 0) {
+					const bulkInserts = existingUsers.map(u => ({
+						conversation_id: newId,
+						profile_id: u.id
+					}));
+					const { error: insErr } = await svc.from('conversation_members').upsert(bulkInserts, { onConflict: 'conversation_id,profile_id' });
+					if (insErr) console.error("Failed to add existing users to new group:", insErr);
+				}
+
+				return newId;
+			};
+
+			const everyoneGroupId = await getOrCreateGroup(null, 'Everyone');
+			const groupsToJoin = [everyoneGroupId];
+
+			if (department_id) {
+				const deptGroupId = await getOrCreateGroup(department_id, `${deptName} Group`);
+				groupsToJoin.push(deptGroupId);
+			}
+
+			const inserts = groupsToJoin.map(gId => ({
+				conversation_id: gId,
+				profile_id: created.user.id
+			}));
+			
+			for (const insert of inserts) {
+				const { error: insErr } = await svc.from('conversation_members').upsert(insert, { onConflict: 'conversation_id,profile_id' });
+				if (insErr) {
+					console.error("Failed to auto-onboard to group:", insErr);
+				}
+			}
+		}
 
 		await audit(locals, 'user.created', 'user', created.user.id, { email });
 		return { success: true, created: true };

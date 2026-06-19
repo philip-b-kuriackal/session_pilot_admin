@@ -3,6 +3,22 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { fullName } from '$lib/types';
   import { confirmSubmit, confirmDialog } from '$lib/admin/ux';
+  import { supabase } from '$lib/supabaseClient';
+
+  $effect(() => {
+    const channel = supabase
+      .channel('public:event_attendance')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'event_attendance' },
+        () => invalidateAll()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  });
 
   let { data, form } = $props();
 

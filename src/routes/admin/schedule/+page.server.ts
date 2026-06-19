@@ -533,6 +533,8 @@ export const actions: Actions = {
 				title,
 				description: form.get('description')?.toString().trim() || null,
 				starts_at,
+				date_time: starts_at, // For compatibility with setup_events.sql schema
+				location: form.get('location_id')?.toString() || 'TBD', // For compatibility with setup_events.sql schema
 				image_url: form.get('image_url')?.toString().trim() || null,
 				created_by: locals.user?.id ?? null
 			})
@@ -541,6 +543,24 @@ export const actions: Actions = {
 		if (error) return fail(500, { message: error.message });
 
 		await audit(locals, 'event.created', 'event', event.id, { title });
+
+		// Notify employees about the new event
+		let query = locals.supabase.from('profiles').select('id').eq('status', 'active');
+		if (form.get('location_id')) {
+			query = query.eq('location_id', form.get('location_id')?.toString());
+		}
+		const { data: profiles } = await query;
+		if (profiles && profiles.length > 0) {
+			const notifications = profiles.map(p => ({
+				user_id: p.id,
+				kind: 'event_created',
+				title: 'New Event',
+				body: title,
+				link: '/events'
+			}));
+			await locals.supabase.from('notifications').insert(notifications);
+		}
+
 		return { success: true };
 	},
 

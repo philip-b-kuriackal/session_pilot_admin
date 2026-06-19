@@ -172,7 +172,15 @@
                       {#each bodyEntries(r.body) as [key, value]}
                         <div class="detail-item">
                           <dt class="muted">{labelize(key)}</dt>
-                          <dd>{value === 'yes' ? '✓' : value}</dd>
+                          <dd>
+                            {#if String(value).startsWith('http')}
+                              <a href={value} target="_blank" rel="noopener noreferrer">
+                                <img src={value} alt="Attachment" style="max-width: 200px; max-height: 200px; border-radius: 8px; margin-top: 8px;" />
+                              </a>
+                            {:else}
+                              {value === 'yes' ? '✓' : value}
+                            {/if}
+                          </dd>
                         </div>
                       {/each}
                       {#if r.resolution_note}

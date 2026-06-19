@@ -45,6 +45,7 @@
     { href: '/admin/departments', label: 'Departments', icon: 'M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5m-4 0h4' },
     { section: 'Insight' },
     { href: '/admin/incident-reports', label: 'Incident Reports', icon: 'M3 21v-4m0 0V5a2 2 0 0 1 2-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 0 0-2 2z' },
+    { href: '/admin/urgent-messages', label: 'Urgent Messages', icon: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z' },
     { href: '/admin/reports', label: 'Reports', icon: 'M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z' },
     { href: '/admin/audit', label: 'Audit Log', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
     { section: 'Extras' },
@@ -53,7 +54,19 @@
     { href: '/admin/workshops', label: 'In Person Workshops', icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
     { href: '/admin/questions', label: 'Employee Questions', icon: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z M9 9h6 M9 13h4' },
     { href: '/admin/whistleblower', label: 'Whistleblower Reports', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 8v4 M12 16h.01' },
-    { href: '/admin/weekly-feedback', label: 'Weekly Feedback', icon: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' }
+    { href: '/admin/weekly-feedback', label: 'Weekly Feedback', icon: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' },
+    { href: '/admin/handbook-story', label: 'Hub: Location Story', icon: 'M4 4h16v16H4z M4 9h16 M9 4v16' },
+    { href: '/admin/handbook-needs', label: 'Hub: What You\'ll Need', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+    { href: '/admin/handbook-rules', label: 'Hub: House Rules', icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10' },
+    { href: '/admin/code-of-conduct', label: 'Code of Conduct', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 0 0 1.946-.806 3.42 3.42 0 0 1 4.438 0 3.42 3.42 0 0 0 1.946.806 3.42 3.42 0 0 1 3.138 3.138 3.42 3.42 0 0 0 .806 1.946 3.42 3.42 0 0 1 0 4.438 3.42 3.42 0 0 0-.806 1.946 3.42 3.42 0 0 1-3.138 3.138 3.42 3.42 0 0 0-1.946.806 3.42 3.42 0 0 1-4.438 0 3.42 3.42 0 0 0-1.946-.806 3.42 3.42 0 0 1-3.138-3.138 3.42 3.42 0 0 0-.806-1.946 3.42 3.42 0 0 1 0-4.438 3.42 3.42 0 0 0 .806-1.946 3.42 3.42 0 0 1 3.138-3.138z' },
+    { href: '/admin/safety-guidelines', label: 'Safety Guidelines', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 8v4 M12 16h.01' },
+    { section: 'Academy' },
+    { href: '/admin/food-safety', label: 'Food Safety Basics', icon: 'M12 2L2 22h20L12 2zm0 4l6 14H6l6-14zm-1 8h2v2h-2v-2zm0-6h2v4h-2V8z' },
+    { href: '/admin/customer-service', label: 'Customer Service', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2a7.2 7.2 0 0 1-6-3.22c.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08a7.2 7.2 0 0 1-6 3.22z' },
+    { href: '/admin/prep-guide', label: 'Prep Guide', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z' },
+    { section: 'Tools' },
+    { href: '/admin/payslips', label: 'Payslips Info', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.64-2.25 1.64-1.74 0-2.26-.95-2.32-1.81H7.84c.08 1.53 1.05 2.72 2.87 3.09V19h2.38v-1.66c1.67-.34 2.98-1.29 2.98-2.9 0-2.11-1.67-2.78-3.76-3.3z' },
+    { href: '/admin/benefits', label: 'Benefits Info', icon: 'M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1h-4v-2h4zM9 4c.55 0 1 .45 1 1h-4c0-.55.45-1 1-1s1 .45 1 1h1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z' }
   ] as const;
 
   function isActive(href: string): boolean {
@@ -84,7 +97,18 @@
     '/admin/workshops': 'In Person Workshops',
     '/admin/questions': 'Employee Questions',
     '/admin/whistleblower': 'Whistleblower Reports',
-    '/admin/weekly-feedback': 'Weekly Feedback'
+    '/admin/weekly-feedback': 'Weekly Feedback',
+    '/admin/handbook-story': 'Hub: Location Story',
+    '/admin/handbook-needs': 'Hub: What You\'ll Need',
+    '/admin/handbook-rules': 'Hub: House Rules',
+    '/admin/code-of-conduct': 'Code of Conduct',
+    '/admin/safety-guidelines': 'Safety Guidelines',
+    '/admin/food-safety': 'Food Safety Basics',
+    '/admin/customer-service': 'Customer Service',
+    '/admin/prep-guide': 'Prep Guide',
+    '/admin/payslips': 'Payslips Info',
+    '/admin/benefits': 'Benefits Info',
+    '/admin/urgent-messages': 'Urgent Messages'
   };
 
   let pageTitle = $derived.by(() => {

@@ -36,3 +36,5 @@ static/uploads/*
 
 # Package manager lockfile from the original template (we use npm)
 bun.lock
+.wrangler/
+

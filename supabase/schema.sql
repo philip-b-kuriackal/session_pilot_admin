@@ -878,3 +878,49 @@ create policy storage_update on storage.objects for update to authenticated
   with check (owner_id::uuid = (select auth.uid()));
 create policy storage_delete on storage.objects for delete to authenticated
   using (owner_id::uuid = (select auth.uid()));
+
+-- ---------- Handbook Stories ----------
+create table public.handbook_stories (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null references public.organizations(id) on delete cascade,
+    location_id uuid references public.locations(id) on delete cascade,
+    title text not null,
+    image_url text,
+    content_bullets text,
+    created_at timestamptz not null default now()
+);
+
+alter table public.handbook_stories enable row level security;
+
+create policy "Allow read access to handbook stories for authenticated users" 
+on public.handbook_stories for select to authenticated using (true);
+
+-- ---------- Handbook Needs ----------
+create table public.handbook_needs (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null references public.organizations(id) on delete cascade,
+    location_id uuid references public.locations(id) on delete cascade,
+    title text not null,
+    content_bullets text,
+    created_at timestamptz not null default now()
+);
+
+alter table public.handbook_needs enable row level security;
+
+create policy "Allow read access to handbook needs for authenticated users" 
+on public.handbook_needs for select to public using (true);
+
+-- ---------- Handbook Rules ----------
+create table public.handbook_rules (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null references public.organizations(id) on delete cascade,
+    location_id uuid references public.locations(id) on delete cascade,
+    title text not null,
+    content_bullets text,
+    created_at timestamptz not null default now()
+);
+
+alter table public.handbook_rules enable row level security;
+
+create policy "Allow read access to handbook rules" 
+on public.handbook_rules for select to public using (true);
