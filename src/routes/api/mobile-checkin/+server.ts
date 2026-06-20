@@ -43,22 +43,25 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	// 2. Handle Actions
 	if (action === 'clock_in') {
-		let checkInLocId = null;
-
-		if (qrToken) {
-			const { verifyToken } = await import('$lib/server/attendance');
-			const qrLocId = await verifyToken(qrToken, async (id) => {
-				const { data } = await svc.from('locations').select('attendance_secret').eq('id', id).single();
-				return data?.attendance_secret || null;
-			});
-			if (!qrLocId) return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
-			
-			const { data: userProfile } = await svc.from('profiles').select('location_id').eq('id', realUserId).single();
-			if (userProfile?.location_id && userProfile.location_id !== qrLocId) {
-				return json({ error: 'Wrong organization' }, { status: 400, headers: corsHeaders });
-			}
-			checkInLocId = qrLocId;
+		if (!qrToken) {
+			return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
 		}
+
+		const { verifyToken } = await import('$lib/server/attendance');
+		const qrLocId = await verifyToken(qrToken, async (id) => {
+			const { data } = await svc.from('locations').select('attendance_secret').eq('id', id).single();
+			return data?.attendance_secret || null;
+		});
+		
+		if (!qrLocId) return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
+		
+		const { data: userProfile } = await svc.from('profiles').select('location_id').eq('id', realUserId).single();
+		
+		if (!userProfile?.location_id || userProfile.location_id !== qrLocId) {
+			return json({ error: 'Wrong organization' }, { status: 400, headers: corsHeaders });
+		}
+		
+		const checkInLocId = qrLocId;
 
 		const { data, error } = await svc
 			.from('time_entries')
