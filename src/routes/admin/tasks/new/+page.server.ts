@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { audit } from '$lib/server/admin';
+import { localDateStr } from '$lib/dates';
 
 /** Build a recurrence_config jsonb object from posted form fields. */
 function buildRecurrenceConfig(form: FormData): Record<string, unknown> {
@@ -137,6 +138,9 @@ export const actions: Actions = {
 				if (aErr) return fail(500, { message: aErr.message });
 			}
 		}
+
+		// Generate task instances for today so the new task shows up immediately
+		await locals.supabase.rpc('generate_task_instances', { p_date: localDateStr() });
 
 		await audit(locals, 'task_template.created', 'task_template', tmpl.id, { name });
 		throw redirect(303, '/admin/tasks');

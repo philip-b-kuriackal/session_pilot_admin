@@ -141,6 +141,11 @@ async function decide(
 		.eq('id', instanceId);
 	if (uErr) return fail(500, { message: uErr.message });
 
+	// If rejected, delete existing evidence so the user is forced to upload a new one
+	if (decision === 'rejected') {
+		await sb.from('evidence').delete().eq('task_instance_id', instanceId);
+	}
+
 	const { data: assignees } = await sb
 		.from('task_assignees')
 		.select('user_id')

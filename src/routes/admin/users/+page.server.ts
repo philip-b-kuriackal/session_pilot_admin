@@ -247,7 +247,12 @@ export const actions: Actions = {
 
 		if (svc) {
 			const { error } = await svc.auth.admin.deleteUser(id);
-			if (error) return fail(500, { message: error.message });
+			if (error && !error.message.toLowerCase().includes('not found')) {
+				return fail(500, { message: error.message });
+			}
+			// Force delete profile in case it was an orphaned row without an auth user
+			const { error: profileError } = await svc.from('profiles').delete().eq('id', id);
+			if (profileError) return fail(500, { message: profileError.message });
 		} else {
 			const { error } = await locals.supabase.from('profiles').delete().eq('id', id);
 			if (error) return fail(500, { message: error.message });

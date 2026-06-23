@@ -545,7 +545,7 @@ export const actions: Actions = {
 		await audit(locals, 'event.created', 'event', event.id, { title });
 
 		// Notify employees about the new event
-		let query = locals.supabase.from('profiles').select('id').eq('status', 'active');
+		let query = locals.supabase.from('profiles').select('id, expo_push_token').eq('status', 'active');
 		if (form.get('location_id')) {
 			query = query.eq('location_id', form.get('location_id')?.toString());
 		}
@@ -559,6 +559,32 @@ export const actions: Actions = {
 				link: '/events'
 			}));
 			await locals.supabase.from('notifications').insert(notifications);
+
+			// Send Expo Push Notifications
+			const pushTokens = profiles.map(p => p.expo_push_token).filter(Boolean);
+			if (pushTokens.length > 0) {
+				const pushMessages = pushTokens.map(token => ({
+					to: token,
+					sound: 'default',
+					title: 'New Event Scheduled!',
+					body: `A new event "${title}" has been created. Tap to view upcoming events!`,
+					data: { url: '/events' },
+				}));
+
+				try {
+					await fetch('https://exp.host/--/api/v2/push/send', {
+						method: 'POST',
+						headers: {
+							'Accept': 'application/json',
+							'Accept-encoding': 'gzip, deflate',
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify(pushMessages),
+					});
+				} catch (err) {
+					console.error('Failed to send push notifications:', err);
+				}
+			}
 		}
 
 		return { success: true };

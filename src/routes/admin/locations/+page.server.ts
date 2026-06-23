@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { audit, serviceClient } from '$lib/server/admin';
+import crypto from 'node:crypto';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const [{ data: locations }, { data: brands }] = await Promise.all([
@@ -46,6 +47,7 @@ export const actions: Actions = {
 				organization_id: orgId,
 				brand_id: brandId,
 				name,
+				attendance_secret: crypto.randomBytes(24).toString('hex'),
 				address: form.get('address')?.toString() || null,
 				city: form.get('city')?.toString() || null,
 				postal_code: form.get('postal_code')?.toString() || null,

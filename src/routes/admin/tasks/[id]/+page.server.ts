@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { audit } from '$lib/server/admin';
+import { localDateStr } from '$lib/dates';
 
 function buildRecurrenceConfig(form: FormData): Record<string, unknown> {
 	const recurrence = form.get('recurrence')?.toString() || 'daily';
@@ -101,6 +102,9 @@ export const actions: Actions = {
 			})
 			.eq('id', params.id);
 		if (uErr) return fail(500, { message: uErr.message });
+
+		// Generate task instances for today so updates to recurrence show up immediately
+		await locals.supabase.rpc('generate_task_instances', { p_date: localDateStr() });
 
 		await audit(locals, 'task_template.updated', 'task_template', params.id, { name });
 		return { success: true };

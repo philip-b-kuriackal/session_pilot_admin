@@ -62,7 +62,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	event.locals.profile = null;
 
 	const path = event.url.pathname;
-	const isPublic = path === '/login' || path.startsWith('/auth') || path.startsWith('/display') || path.startsWith('/api/mobile-checkin');
+	const isPublic = path === '/login' || path.startsWith('/auth') || path.startsWith('/display') || path.startsWith('/api/mobile-checkin') || path.startsWith('/api/user-exists');
 
 	if (!isPublic && !session) {
 		throw redirect(303, '/login');

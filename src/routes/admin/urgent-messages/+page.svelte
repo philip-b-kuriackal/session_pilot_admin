@@ -1,11 +1,46 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { confirmSubmit } from '$lib/admin/ux';
+	import { onMount } from 'svelte';
+	import { supabase } from '$lib/supabaseClient';
 
 	let { data, form } = $props();
 	
 	let selectedLocation = $state('');
+	let activeTab = $state('admin');
 	
+	// Create a reactive local copy of the sent messages for realtime updates
+	let liveEntries = $state(data.entries);
+
+	// Sync local state if data changes from load function
+	$effect(() => {
+		liveEntries = data.entries;
+	});
+
+	onMount(() => {
+		if (!supabase) return;
+		
+		const channel = supabase
+			.channel('admin_urgent_messages')
+			.on(
+				'postgres_changes',
+				{ event: 'UPDATE', schema: 'public', table: 'urgent_messages' },
+				(payload) => {
+					const updatedMsg = payload.new;
+					const index = liveEntries.findIndex(e => e.id === updatedMsg.id);
+					if (index !== -1) {
+						// Mutate the matched row in the reactive array
+						liveEntries[index].is_read = updatedMsg.is_read;
+						liveEntries[index].read_at = updatedMsg.read_at;
+					}
+				}
+			)
+			.subscribe();
+
+		return () => {
+			supabase.removeChannel(channel);
+		};
+	});
 	let filteredUsers = $derived(
 		selectedLocation 
 			? data.users.filter(u => u.location_id === selectedLocation)
@@ -83,58 +118,110 @@
 		</form>
 	</div>
 
-	<div class="card" style="margin-top: 1rem;">
-		<h2>Sent Messages</h2>
-		<p class="muted" style="margin-bottom: 1rem;">Track read receipts from employees.</p>
-
-		{#if data.entries.length === 0}
-			<div class="empty">No urgent messages sent yet.</div>
-		{:else}
-			<div class="table-wrap">
-				<table>
-					<thead>
-						<tr>
-							<th>Recipient</th>
-							<th>Location</th>
-							<th>Message</th>
-							<th>Status</th>
-							<th style="text-align: right">Action</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each data.entries as msg}
-							<tr>
-								<td>
-									<div style="font-weight: 600;">{msg.profiles?.first_name} {msg.profiles?.last_name}</div>
-									<div class="muted">Sent by {msg.sender?.first_name} {msg.sender?.last_name}</div>
-								</td>
-								<td class="muted">{msg.locations?.name || '-'}</td>
-								<td>
-									<div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={msg.message_text}>
-										{msg.message_text}
-									</div>
-									<div class="muted" style="font-size: 0.7rem;">{formatDate(msg.created_at)}</div>
-								</td>
-								<td>
-									{#if msg.is_read}
-										<span class="badge green">Read at {formatDate(msg.read_at)}</span>
-									{:else}
-										<span class="badge orange">Unread</span>
-									{/if}
-								</td>
-								<td style="text-align: right">
-									<form method="POST" action="?/delete" use:enhance={confirmSubmit} style="display: inline;">
-										<input type="hidden" name="id" value={msg.id} />
-										<button type="submit" class="btn danger sm" title="Delete Message">
-											Delete
-										</button>
-									</form>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
+	<div class="tabs" style="margin-top: 2rem; border-bottom: 1px solid var(--border); display: flex; gap: 1rem;">
+		<button onclick={() => activeTab = 'admin'} style="background: none; border: none; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; font-size: 1rem;" style:border-bottom-color={activeTab === 'admin' ? 'var(--primary)' : 'transparent'} style:color={activeTab === 'admin' ? 'var(--primary)' : 'var(--muted)'}>
+			Sent by Admin
+		</button>
+		<button onclick={() => activeTab = 'employee'} style="background: none; border: none; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; font-size: 1rem;" style:border-bottom-color={activeTab === 'employee' ? 'var(--primary)' : 'transparent'} style:color={activeTab === 'employee' ? 'var(--primary)' : 'var(--muted)'}>
+			Employee Important Posts
+		</button>
 	</div>
+
+	{#if activeTab === 'admin'}
+		<div class="card" style="margin-top: 1rem;">
+			<h2>Sent Messages</h2>
+			<p class="muted" style="margin-bottom: 1rem;">Track read receipts from employees.</p>
+
+			{#if liveEntries.length === 0}
+				<div class="empty">No urgent messages sent yet.</div>
+			{:else}
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>Recipient</th>
+								<th>Location</th>
+								<th>Message</th>
+								<th>Status</th>
+								<th style="text-align: right">Action</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each liveEntries as msg}
+								<tr>
+									<td>
+										<div style="font-weight: 600;">{msg.profiles?.first_name} {msg.profiles?.last_name}</div>
+										<div class="muted">Sent by {msg.sender?.first_name} {msg.sender?.last_name}</div>
+									</td>
+									<td class="muted">{msg.locations?.name || '-'}</td>
+									<td>
+										<div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={msg.message_text}>
+											{msg.message_text}
+										</div>
+										<div class="muted" style="font-size: 0.7rem;">{formatDate(msg.created_at)}</div>
+									</td>
+									<td>
+										{#if msg.is_read}
+											<span class="badge green">Read at {formatDate(msg.read_at)}</span>
+										{:else}
+											<span class="badge orange">Unread</span>
+										{/if}
+									</td>
+									<td style="text-align: right">
+										<form method="POST" action="?/delete" use:enhance={confirmSubmit} style="display: inline;">
+											<input type="hidden" name="id" value={msg.id} />
+											<button type="submit" class="btn danger sm" title="Delete Message">
+												Delete
+											</button>
+										</form>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<div class="card" style="margin-top: 1rem;">
+			<h2>Employee Important Posts</h2>
+			<p class="muted" style="margin-bottom: 1rem;">View all feed posts marked as important by employees.</p>
+
+			{#if data.important_posts.length === 0}
+				<div class="empty">No important posts from employees yet.</div>
+			{:else}
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>Author</th>
+								<th>Location</th>
+								<th>Post Content</th>
+								<th>Posted At</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each data.important_posts as post}
+								<tr>
+									<td>
+										<div style="font-weight: 600;">{post.author?.first_name} {post.author?.last_name}</div>
+										<div class="muted">{post.author?.role || 'Employee'}</div>
+									</td>
+									<td class="muted">{post.locations?.name || '-'}</td>
+									<td>
+										<div style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={post.content}>
+											{post.content || (post.image_url ? '[Media Post]' : '')}
+										</div>
+									</td>
+									<td class="muted">
+										{formatDate(post.created_at)}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>

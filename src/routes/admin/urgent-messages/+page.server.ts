@@ -35,10 +35,23 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.eq('organization_id', orgId)
 		.neq('id', locals.profile.id);
 
+	// Fetch employee important posts
+	const { data: important_posts } = await locals.supabase
+		.from('posts')
+		.select(`
+			id, content, created_at, image_url,
+			locations(name),
+			author:profiles!posts_author_id_fkey(first_name, last_name, role)
+		`)
+		.eq('organization_id', orgId)
+		.eq('is_important', true)
+		.order('created_at', { ascending: false });
+
 	return {
 		entries: entries || [],
 		locations: locations || [],
-		users: users || []
+		users: users || [],
+		important_posts: important_posts || []
 	};
 };
 

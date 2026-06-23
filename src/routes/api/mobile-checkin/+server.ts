@@ -41,27 +41,41 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const now = new Date().toISOString();
 
+	// Verify QR Code for ALL actions (clock_in, pause, resume, clock_out)
+	if (!qrToken) {
+		return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
+	}
+
+	const { verifyToken } = await import('$lib/server/attendance');
+	const qrLocId = await verifyToken(qrToken, async (id) => {
+		const { data } = await svc.from('locations').select('attendance_secret').eq('id', id).single();
+		return data?.attendance_secret || null;
+	});
+	
+	if (!qrLocId) return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
+	
+	const { data: userProfile } = await svc.from('profiles').select('location_id').eq('id', realUserId).single();
+	
+	if (!userProfile?.location_id || userProfile.location_id !== qrLocId) {
+		return json({ error: 'Wrong organization' }, { status: 400, headers: corsHeaders });
+	}
+	
+	const checkInLocId = qrLocId;
+
 	// 2. Handle Actions
 	if (action === 'clock_in') {
-		if (!qrToken) {
-			return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
-		}
 
-		const { verifyToken } = await import('$lib/server/attendance');
-		const qrLocId = await verifyToken(qrToken, async (id) => {
-			const { data } = await svc.from('locations').select('attendance_secret').eq('id', id).single();
-			return data?.attendance_secret || null;
-		});
-		
-		if (!qrLocId) return json({ error: 'Invalid or expired QR code' }, { status: 400, headers: corsHeaders });
-		
-		const { data: userProfile } = await svc.from('profiles').select('location_id').eq('id', realUserId).single();
-		
-		if (!userProfile?.location_id || userProfile.location_id !== qrLocId) {
-			return json({ error: 'Wrong organization' }, { status: 400, headers: corsHeaders });
+		// Check if there is already an active time entry to prevent duplicates
+		const { data: existingActive } = await svc
+			.from('time_entries')
+			.select('id')
+			.eq('user_id', realUserId)
+			.is('clock_out', null)
+			.single();
+
+		if (existingActive) {
+			return json({ success: true, timeEntryId: existingActive.id }, { headers: corsHeaders });
 		}
-		
-		const checkInLocId = qrLocId;
 
 		const { data, error } = await svc
 			.from('time_entries')
