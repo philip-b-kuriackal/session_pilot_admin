@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { serviceClient } from '$lib/server/admin';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request }) => {
     try {
         const { organization_id, location_id, sender_id, message_text } = await request.json();
 
@@ -9,8 +10,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             return json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        const supabase = serviceClient();
+        if (!supabase) return json({ error: 'Database uninitialized' }, { status: 500 });
+
         // Fetch all users at this location except the sender
-        const { data: users, error: userError } = await locals.supabase
+        const { data: users, error: userError } = await supabase
             .from('profiles')
             .select('id')
             .eq('organization_id', organization_id)
@@ -29,7 +33,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 is_read: false
             }));
 
-            const { error: insertError } = await locals.supabase
+            const { error: insertError } = await supabase
                 .from('urgent_messages')
                 .insert(urgentInserts);
 
