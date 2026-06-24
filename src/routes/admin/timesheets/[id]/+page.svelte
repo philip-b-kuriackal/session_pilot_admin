@@ -21,10 +21,12 @@
 
   function fmtMinutes(mins: number): string {
     const sign = mins < 0 ? '−' : '';
-    const m = Math.abs(Math.round(mins));
-    const h = Math.floor(m / 60);
-    const r = m % 60;
-    return `${sign}${h}h ${String(r).padStart(2, '0')}m`;
+    let totalSeconds = Math.round(Math.abs(mins) * 60);
+    const h = Math.floor(totalSeconds / 3600);
+    totalSeconds %= 3600;
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${sign}${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
   }
 
   function fmtAdjustment(mins: number): string {

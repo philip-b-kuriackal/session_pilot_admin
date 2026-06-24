@@ -8,9 +8,13 @@
   const timeFmt = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit', hour12: false });
 
   function fmtMinutes(min: number): string {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return h ? `${h}h ${m.toString().padStart(2, '0')}m` : `${m}m`;
+    const sign = min < 0 ? '−' : '';
+    let totalSeconds = Math.round(Math.abs(min) * 60);
+    const h = Math.floor(totalSeconds / 3600);
+    totalSeconds %= 3600;
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${sign}${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
   }
 
   function breakMinutes(e: TimeEntry): number {
@@ -19,7 +23,7 @@
       const end = b.break_end ? new Date(b.break_end).getTime() : Date.now();
       ms += Math.max(0, end - new Date(b.break_start).getTime());
     }
-    return Math.round(ms / 60000);
+    return ms / 60000;
   }
 
   // group entries by month, with totals

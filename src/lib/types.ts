@@ -340,7 +340,7 @@ export function entryNetMinutes(e: TimeEntry, asOf: Date = new Date()): number {
 		const be = b.break_end ? new Date(b.break_end).getTime() : asOf.getTime();
 		breakMs += Math.max(0, be - bs);
 	}
-	return Math.max(0, Math.round((end - start - breakMs) / 60000));
+	return Math.max(0, (end - start - breakMs) / 60000);
 }
 
 export function fullName(p?: Pick<Profile, 'first_name' | 'last_name'> | null): string {

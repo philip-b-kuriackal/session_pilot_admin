@@ -595,6 +595,9 @@ export const actions: Actions = {
 		const id = form.get('id')?.toString();
 		if (!id) return fail(400, { message: 'Missing id' });
 
+		// Clear out any attendance/RSVPs first so we don't hit foreign key constraints
+		await locals.supabase.from('event_attendance').delete().eq('event_id', id);
+
 		const { error } = await locals.supabase.from('events').delete().eq('id', id);
 		if (error) return fail(500, { message: error.message });
 

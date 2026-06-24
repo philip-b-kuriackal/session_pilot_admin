@@ -1103,7 +1103,12 @@
 <details class="create-panel" bind:open={eventPanelOpen}>
   <summary>+ Create event</summary>
   <div class="panel-body">
-    <form method="POST" action="?/createEvent" use:enhance>
+    <form method="POST" action="?/createEvent" use:enhance={({ formData }) => {
+      const localStr = formData.get('starts_at');
+      if (typeof localStr === 'string' && localStr) {
+        formData.set('starts_at', new Date(localStr).toISOString());
+      }
+    }}>
       <div class="form-grid">
         <label class="field"><span>Title *</span><input type="text" name="title" required placeholder="e.g. Summer kickoff" /></label>
         <label class="field">

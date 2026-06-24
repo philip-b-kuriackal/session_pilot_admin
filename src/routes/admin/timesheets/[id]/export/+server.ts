@@ -54,7 +54,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 		for (const b of e.breaks ?? []) {
 			const bs = new Date(b.break_start).getTime();
 			const be = b.break_end ? new Date(b.break_end).getTime() : bs;
-			breakMin += Math.max(0, Math.round((be - bs) / 60000));
+			breakMin += Math.max(0, (be - bs) / 60000);
 		}
 		const net = entryNetMinutes(e);
 		const cur = byDay.get(key);

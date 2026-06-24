@@ -56,7 +56,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		const open = !e.clock_out;
 		const breakMins = (e.breaks ?? []).reduce((sum: number, b: TimeBreak) => {
 			if (!b.break_end) return sum;
-			return sum + Math.max(0, Math.round((new Date(b.break_end).getTime() - new Date(b.break_start).getTime()) / 60000));
+			return sum + Math.max(0, (new Date(b.break_end).getTime() - new Date(b.break_start).getTime()) / 60000);
 		}, 0);
 		return {
 			id: e.id,
