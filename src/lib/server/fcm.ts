@@ -1,5 +1,5 @@
 import { importPKCS8, SignJWT } from 'jose';
-import { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 let cachedToken: string | null = null;
 let tokenExpiration = 0;
@@ -13,10 +13,10 @@ async function getAccessToken(): Promise<string> {
         return cachedToken;
     }
     
-    const privateKeyStr = FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    const privateKeyStr = env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
     const privateKey = await importPKCS8(privateKeyStr, 'RS256');
     const jwt = await new SignJWT({
-        iss: FIREBASE_CLIENT_EMAIL,
+        iss: env.FIREBASE_CLIENT_EMAIL,
         scope: 'https://www.googleapis.com/auth/firebase.messaging',
         aud: 'https://oauth2.googleapis.com/token',
     })
@@ -51,7 +51,7 @@ async function getAccessToken(): Promise<string> {
 export async function sendPushNotification(topic: string, title: string, body: string, url: string) {
     try {
         const token = await getAccessToken();
-        const response = await fetch(`https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`, {
+        const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
