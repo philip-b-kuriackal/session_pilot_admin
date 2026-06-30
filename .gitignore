@@ -38,3 +38,5 @@ static/uploads/*
 bun.lock
 .wrangler/
 
+# Firebase credentials
+firebase-credentials.json
